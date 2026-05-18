@@ -13,7 +13,7 @@ const cards = [
   {
     icon: Globe,
     title: "Any Language",
-    body: "Auto-detects the customer’s language and replies in kind. Arabic, Urdu, English, Spanish, and dozens more — without flipping a switch.",
+    body: "Auto detects the customer’s language and replies in kind. Arabic, Urdu, English, Spanish, and dozens more without flipping a switch.",
   },
   {
     icon: Zap,
@@ -123,7 +123,7 @@ export function Features() {
             </h3>
             <p className="mt-4 leading-relaxed text-slate-600">
               See a conversation that needs a personal touch? One click pauses the AI and lets you type directly. The AI
-              resumes when you&apos;re done, or stays paused until you re-enable it. You&apos;re always in command.
+              resumes when you&apos;re done, or stays paused until you re enable it. You&apos;re always in command.
             </p>
           </ScrollReveal>
         </div>

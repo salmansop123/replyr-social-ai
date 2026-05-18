@@ -31,10 +31,13 @@ FACEBOOK_PAGE_SCOPES = (
 
 
 def facebook_oauth_redirect_uri() -> str:
+    """OAuth callback must hit the API host — not the ngrok URL used only for webhooks."""
     if settings.meta_oauth_redirect_uri:
         return settings.meta_oauth_redirect_uri.strip()
-    base = (settings.webhook_base_url or "http://localhost:8000").rstrip("/")
-    return f"{base}/api/v1/social/callback/facebook"
+    api_base = (settings.webhook_base_url or "").strip()
+    if api_base.startswith("http://localhost") or api_base.startswith("http://127.0.0.1"):
+        return f"{api_base.rstrip('/')}/api/v1/social/callback/facebook"
+    return "http://localhost:8000/api/v1/social/callback/facebook"
 
 
 def sign_oauth_state(organization_id: uuid.UUID, user_id: uuid.UUID) -> str:

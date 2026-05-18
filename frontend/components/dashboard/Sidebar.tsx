@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
-import { useAuthToken } from "@/components/auth/AuthAndClerkProvider";
 import { AppLogo } from "@/components/brand/AppLogo";
 import { DashboardLogoutButton } from "@/components/dashboard/DashboardLogoutButton";
 
@@ -18,7 +16,6 @@ const links = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isClerkActive } = useAuthToken();
 
   return (
     <aside className="relative flex w-[280px] shrink-0 flex-col border-r border-electric/10 bg-white/92 shadow-[4px_0_40px_-12px_rgba(59,130,246,0.12),4px_0_24px_-16px_rgba(37,211,102,0.08)] backdrop-blur-xl">

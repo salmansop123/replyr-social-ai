@@ -28,7 +28,7 @@ export function Hero() {
               <span className="absolute inline-flex h-full w-full animate-pulse-badge rounded-full bg-wa opacity-75 motion-reduce:animate-none" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-wa" />
             </span>
-            AI Replies in 30 seconds — Always Human
+            AI Replies in 30 seconds Always Human
           </div>
 
           <h1 className="font-heading mt-8 text-4xl font-bold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl lg:text-[64px] lg:leading-[1.06]">
@@ -93,7 +93,7 @@ export function Hero() {
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-white px-6 py-3.5 text-base font-semibold text-slate-700 shadow-sm transition hover:border-teal-brand/35 hover:bg-gradient-to-r hover:from-electric-soft/30 hover:via-white hover:to-wa-muted/50 hover:shadow-md"
             >
               <Play className="h-5 w-5 fill-electric text-electric" />
-              Watch 2-min Demo
+              Watch 2 min Demo
             </button>
           </div>
 

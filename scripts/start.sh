@@ -138,7 +138,7 @@ if [[ "${REPLYR_KEEP_NEXT:-}" != "1" ]] && [[ -d .next ]]; then
 fi
 sleep 1
 echo "Starting UI at http://127.0.0.1:3000 — wait for 'Ready' before opening the browser."
-npm run dev &
+npm run dev:webpack &
 FRONTEND_PID=$!
 
 echo ""

@@ -42,6 +42,7 @@ read_env() {
 
 META_APP_ID="$(read_env META_APP_ID)"
 META_VERIFY_TOKEN="$(read_env META_VERIFY_TOKEN)"
+META_OAUTH_REDIRECT_URI="$(read_env META_OAUTH_REDIRECT_URI)"
 
 if [[ -z "${META_APP_ID}" || "${META_APP_ID}" == "your_meta_app_id" ]]; then
   echo "Warning: META_APP_ID is empty or still a placeholder in backend/.env — step 1 URL may be wrong." >&2
@@ -99,24 +100,48 @@ fi
 
 CALLBACK="${NGROK_URL}/webhooks/meta"
 
+# Suggest updating env for reference (Meta reads URL from console, not .env)
+if [[ -f "${ROOT}/backend/.env.local" ]]; then
+  if grep -q '^WEBHOOK_BASE_URL=' "${ROOT}/backend/.env.local" 2>/dev/null; then
+    sed -i "s|^WEBHOOK_BASE_URL=.*|WEBHOOK_BASE_URL=${NGROK_URL}|" "${ROOT}/backend/.env.local" 2>/dev/null || true
+  else
+    echo "WEBHOOK_BASE_URL=${NGROK_URL}" >> "${ROOT}/backend/.env.local"
+  fi
+elif [[ -f "${ENV_FILE}" ]]; then
+  echo "(Tip: add WEBHOOK_BASE_URL=${NGROK_URL} to backend/.env.local)"
+fi
+
+FB_APP_SETTINGS="https://developers.facebook.com/apps/${META_APP_ID:-YOUR_APP_ID}/settings/basic/"
+FB_WEBHOOKS="https://developers.facebook.com/apps/${META_APP_ID:-YOUR_APP_ID}/webhooks/"
+OAUTH_REDIRECT="${META_OAUTH_REDIRECT_URI:-http://localhost:8000/api/v1/social/callback/facebook}"
+
 echo ""
 echo "═══════════════════════════════════════════════════════════"
-echo "  NGROK RUNNING — Register your webhook in Meta:"
+echo "  NGROK — Meta webhooks (WhatsApp + Facebook Pages)"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
-echo "  1. Go to: ${WA_CONSOLE_URL}"
-echo "  2. Under \"Webhook\", click Edit"
-echo "  3. Set Callback URL to:"
-echo "       ${CALLBACK}"
-echo "  4. Set Verify Token to: (whatever META_VERIFY_TOKEN is in your .env)"
-echo "       → ${META_VERIFY_TOKEN:-<set META_VERIFY_TOKEN in backend/.env>}"
-echo "  5. Click Verify and Save"
-echo "  6. Under Webhook Fields, subscribe to: messages"
+echo "  Callback URL (both products):"
+echo "    ${CALLBACK}"
+echo "  Verify token:"
+echo "    ${META_VERIFY_TOKEN:-<set META_VERIFY_TOKEN in backend/.env>}"
 echo ""
-echo "  Then send a WhatsApp message to your test number and watch:"
-echo "  - http://localhost:8000/docs (FastAPI logs)"
-echo "  - Celery worker terminal (AI processing)"
-echo "  - http://localhost:3000/dashboard/comments (new conversation)"
+echo "  ── WhatsApp ──"
+echo "  1. ${WA_CONSOLE_URL}"
+echo "  2. Webhook → Edit → paste URL + token → Verify and Save"
+echo "  3. Subscribe field: messages"
+echo ""
+echo "  ── Facebook Pages (Phase 3 beta) ──"
+echo "  1. ${FB_WEBHOOKS}"
+echo "  2. Select object: Page → Subscribe"
+echo "  3. Same callback URL + verify token as above"
+echo "  4. Subscribe fields: feed, messages, messaging_postbacks"
+echo "  5. Facebook Login → Valid OAuth Redirect URI (exact):"
+echo "       ${OAUTH_REDIRECT}"
+echo ""
+echo "  Then test:"
+echo "  - WhatsApp → test number"
+echo "  - Facebook → comment on Page post or Messenger DM"
+echo "  - Inbox: http://localhost:3000/dashboard/comments"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
 echo "Ngrok PID ${NGROK_PID} — press Ctrl+C to stop the tunnel."

@@ -30,7 +30,7 @@ export function LiveDemo() {
                 <Play className="ml-1 h-7 w-7 fill-current" />
               </span>
               <span className="rounded-full bg-white/95 px-4 py-1 text-sm font-medium text-slate-800 shadow-md backdrop-blur-sm">
-                Watch 2-min demo
+                Watch 2 min demo
               </span>
             </div>
           </button>

@@ -7,8 +7,8 @@ const items = [
   {
     quote:
       "We used to miss half our WhatsApp messages. Now Replyr handles everything and our sales are up 40%. It sounds just like our team.",
-    name: "Sarah K., Owner at GlowSkin Cosmetics",
-    flag: "🇵🇰",
+    name: "Julia K., Owner at GlowSkin Cosmetics",
+    flag: "🇺🇸",
   },
   {
     quote:
@@ -19,7 +19,7 @@ const items = [
   {
     quote:
       "Setup took 8 minutes. By the end of the day it had replied to 47 customer messages without a single mistake. Incredible.",
-    name: "Maria L., Marketing Manager",
+    name: "John L., Marketing Manager",
     flag: "🇬🇧",
   },
 ];

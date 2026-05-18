@@ -52,6 +52,7 @@ def whatsapp_social_account(
         name="Webhook Test Org",
         slug=f"wh-test-{uuid.uuid4().hex[:8]}",
         subscription_tier="starter",
+        escalation_keywords=[],
     )
     db_session.add(org)
     db_session.flush()
@@ -88,6 +89,7 @@ def facebook_social_account(
         name="Facebook Webhook Test Org",
         slug=f"fb-test-{uuid.uuid4().hex[:8]}",
         subscription_tier="starter",
+        escalation_keywords=[],
     )
     db_session.add(org)
     db_session.flush()

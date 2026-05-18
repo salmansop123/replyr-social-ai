@@ -99,8 +99,11 @@ def test_webhook_valid_signature_processes_message(
     db_session: Session,
     whatsapp_social_account: tuple,
 ) -> None:
+    import uuid as _uuid
+
     _, acc, phone_number_id = whatsapp_social_account
-    payload = _wa_payload(phone_number_id, "1555987654321", "wamid.testmsg_unique_001", "Hello pytest")
+    mid = f"wamid.legacy_{_uuid.uuid4().hex[:12]}"
+    payload = _wa_payload(phone_number_id, "1555987654321", mid, "Hello pytest")
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     sig = _hub_sig256(body, meta_test_secret)
 
@@ -124,9 +127,86 @@ def test_webhook_valid_signature_processes_message(
         .count()
     )
     assert msg_count == 1
-    m = db_session.query(Message).filter(Message.platform_message_id == "wamid.testmsg_unique_001").first()
+    m = db_session.query(Message).filter(Message.platform_message_id == mid).first()
     assert m is not None
     assert m.content == "Hello pytest"
+
+
+def _wa_cloud_payload(phone_number_id: str, customer_wa_id: str, mid: str, body_text: str) -> dict:
+    """WhatsApp Cloud API shape: entry.changes[].value.messages."""
+    return {
+        "object": "whatsapp_business_account",
+        "entry": [
+            {
+                "id": "waba_test_id",
+                "changes": [
+                    {
+                        "field": "messages",
+                        "value": {
+                            "messaging_product": "whatsapp",
+                            "metadata": {
+                                "display_phone_number": "15550001111",
+                                "phone_number_id": phone_number_id,
+                            },
+                            "contacts": [
+                                {
+                                    "profile": {"name": "Cloud Tester"},
+                                    "wa_id": customer_wa_id,
+                                }
+                            ],
+                            "messages": [
+                                {
+                                    "from": customer_wa_id,
+                                    "id": mid,
+                                    "timestamp": "1700000001",
+                                    "type": "text",
+                                    "text": {"body": body_text},
+                                }
+                            ],
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def test_whatsapp_cloud_api_webhook(
+    meta_test_secret: str,
+    sync_client: TestClient,
+    db_session: Session,
+    whatsapp_social_account: tuple,
+) -> None:
+    _, acc, phone_number_id = whatsapp_social_account
+    import uuid as _uuid
+
+    mid = f"wamid.cloud_{_uuid.uuid4().hex[:12]}"
+    payload = _wa_cloud_payload(phone_number_id, "1555777888999", mid, "Hello from Cloud API")
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    sig = _hub_sig256(body, meta_test_secret)
+
+    with patch("app.workers.webhook_tasks.process_and_reply.delay") as delay_mock:
+        r = sync_client.post(
+            "/webhooks/meta",
+            content=body,
+            headers={"Content-Type": "application/json", "X-Hub-Signature-256": sig},
+        )
+    assert r.status_code == 200
+    delay_mock.assert_called_once()
+
+    conv = (
+        db_session.query(Conversation)
+        .filter(
+            Conversation.social_account_id == acc.id,
+            Conversation.platform_conversation_id == "1555777888999",
+        )
+        .first()
+    )
+    assert conv is not None
+    assert conv.platform == "whatsapp"
+    m = db_session.query(Message).filter(Message.platform_message_id == mid).first()
+    assert m is not None
+    assert m.content == "Hello from Cloud API"
 
 
 def test_duplicate_message_not_processed_twice(
@@ -136,7 +216,9 @@ def test_duplicate_message_not_processed_twice(
     whatsapp_social_account: tuple,
 ) -> None:
     _, acc, phone_number_id = whatsapp_social_account
-    mid = "wamid.dedup_same_mid_002"
+    import uuid as _uuid
+
+    mid = f"wamid.dedup_{_uuid.uuid4().hex[:12]}"
     payload = _wa_payload(phone_number_id, "1555111222333", mid, "Duplicate probe")
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     sig = _hub_sig256(body, meta_test_secret)
@@ -198,7 +280,10 @@ def test_facebook_feed_comment_creates_conversation(
     facebook_social_account: tuple,
 ) -> None:
     _, acc, page_id = facebook_social_account
-    payload = _fb_comment_payload(page_id, "cmt_unique_001", "post_999", "Nice product!")
+    import uuid as _uuid
+
+    cmt_id = f"cmt_{_uuid.uuid4().hex[:12]}"
+    payload = _fb_comment_payload(page_id, cmt_id, "post_999", "Nice product!")
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     sig = _hub_sig256(body, meta_test_secret)
 
@@ -219,14 +304,14 @@ def test_facebook_feed_comment_creates_conversation(
         db_session.query(Conversation)
         .filter(
             Conversation.social_account_id == acc.id,
-            Conversation.platform_conversation_id == "comment:cmt_unique_001",
+            Conversation.platform_conversation_id == f"comment:{cmt_id}",
         )
         .first()
     )
     assert conv is not None
     assert conv.facebook_thread_type == "comment"
     assert conv.post_context == "Summer sale — 20% off"
-    m = db_session.query(Message).filter(Message.platform_message_id == "cmt_unique_001").first()
+    m = db_session.query(Message).filter(Message.platform_message_id == cmt_id).first()
     assert m is not None
     assert m.content == "Nice product!"
 
@@ -238,7 +323,10 @@ def test_facebook_comment_deduped(
     facebook_social_account: tuple,
 ) -> None:
     _, acc, page_id = facebook_social_account
-    payload = _fb_comment_payload(page_id, "cmt_dedup_002", "post_888", "Duplicate comment")
+    import uuid as _uuid
+
+    cmt_id = f"cmt_dedup_{_uuid.uuid4().hex[:12]}"
+    payload = _fb_comment_payload(page_id, cmt_id, "post_888", "Duplicate comment")
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     sig = _hub_sig256(body, meta_test_secret)
 
@@ -258,5 +346,5 @@ def test_facebook_comment_deduped(
             headers={"Content-Type": "application/json", "X-Hub-Signature-256": sig},
         )
     assert delay_mock.call_count == 1
-    rows = db_session.query(Message).filter(Message.platform_message_id == "cmt_dedup_002").all()
+    rows = db_session.query(Message).filter(Message.platform_message_id == cmt_id).all()
     assert len(rows) == 1

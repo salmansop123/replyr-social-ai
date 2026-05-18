@@ -125,7 +125,7 @@ export function HowItWorks() {
               <p className="mt-4 text-xs font-bold uppercase tracking-widest text-electric">Step 3</p>
               <h3 className="font-heading mt-2 text-xl font-bold text-slate-900">AI handles everything automatically</h3>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                From this moment on, every WhatsApp message and Facebook comment gets a real, human-sounding reply even
+                From this moment on, every WhatsApp message and Facebook comment gets a real, human sounding reply even
                 while you sleep.
               </p>
               <div className="mt-6 flex justify-center scale-[0.92]">

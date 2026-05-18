@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Simulate a Meta WhatsApp-style webhook POST against a running local API.
+Phase 2 — Simulate a Meta WhatsApp Cloud API webhook against local API.
 
 Requires:
-  - API listening on http://localhost:8000 (e.g. uvicorn)
-  - backend/.env: META_APP_SECRET must match the app verifying signatures
-  - A SocialAccount row with platform_user_id equal to WEBHOOK_TEST_PHONE_NUMBER_ID (entry id)
+  - ./start.sh running (API :8000, Celery, Postgres, Redis)
+  - backend/.env: META_APP_SECRET
+  - SocialAccount with platform_user_id = phone_number_id
+    OR META_WHATSAPP_PHONE_NUMBER_ID + META_WHATSAPP_ACCESS_TOKEN (dev auto-provision)
 
-Optional:
-  - TEST_JWT: Bearer token for GET /api/v1/conversations (Clerk JWT for a user in that org)
+Usage:
+  WEBHOOK_TEST_PHONE_NUMBER_ID=123456789 python scripts/test_whatsapp_flow.py
 """
 
 from __future__ import annotations
@@ -23,7 +24,8 @@ from pathlib import Path
 
 import httpx
 
-BASE = "http://localhost:8000"
+ROOT = Path(__file__).resolve().parents[1]
+BASE = os.environ.get("REPLYR_API_URL", "http://localhost:8000").rstrip("/")
 
 
 def _load_dotenv() -> None:
@@ -31,31 +33,51 @@ def _load_dotenv() -> None:
         from dotenv import load_dotenv
     except ImportError:
         return
-    env_file = Path(__file__).resolve().parents[1] / "backend" / ".env"
-    if env_file.is_file():
-        load_dotenv(env_file)
+    for name in (".env", ".env.local"):
+        p = ROOT / "backend" / name
+        if p.is_file():
+            load_dotenv(p)
 
 
 def _sign_body(body: bytes, secret: str) -> str:
     return "sha256=" + hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
 
 
-def build_whatsapp_payload(phone_number_id: str, customer_id: str, text: str, mid: str) -> dict:
-    """Same entry/messaging/message shape as backend/app/workers/webhook_tasks._handle_dm."""
+def build_whatsapp_cloud_payload(
+    phone_number_id: str,
+    customer_wa_id: str,
+    text: str,
+    mid: str,
+) -> dict:
     return {
         "object": "whatsapp_business_account",
         "entry": [
             {
-                "id": phone_number_id,
-                "messaging": [
+                "id": "waba_script_test",
+                "changes": [
                     {
-                        "sender": {"id": customer_id},
-                        "recipient": {"id": phone_number_id},
-                        "timestamp": str(int(time.time())),
-                        "message": {
-                            "mid": mid,
-                            "type": "text",
-                            "text": {"body": text},
+                        "field": "messages",
+                        "value": {
+                            "messaging_product": "whatsapp",
+                            "metadata": {
+                                "display_phone_number": "15550000000",
+                                "phone_number_id": phone_number_id,
+                            },
+                            "contacts": [
+                                {
+                                    "profile": {"name": "Script Tester"},
+                                    "wa_id": customer_wa_id,
+                                }
+                            ],
+                            "messages": [
+                                {
+                                    "from": customer_wa_id,
+                                    "id": mid,
+                                    "timestamp": str(int(time.time())),
+                                    "type": "text",
+                                    "text": {"body": text},
+                                }
+                            ],
                         },
                     }
                 ],
@@ -67,30 +89,32 @@ def build_whatsapp_payload(phone_number_id: str, customer_id: str, text: str, mi
 def main() -> int:
     _load_dotenv()
     secret = (os.environ.get("META_APP_SECRET") or "").strip()
-    if not secret:
-        print("META_APP_SECRET is not set (load backend/.env or export it).", file=sys.stderr)
+    if not secret or secret == "your_meta_app_secret":
+        print("Set META_APP_SECRET in backend/.env", file=sys.stderr)
         return 1
 
-    phone_number_id = (os.environ.get("WEBHOOK_TEST_PHONE_NUMBER_ID") or "").strip()
+    phone_number_id = (os.environ.get("WEBHOOK_TEST_PHONE_NUMBER_ID") or os.environ.get("META_WHATSAPP_PHONE_NUMBER_ID") or "").strip()
     if not phone_number_id:
-        print(
-            "Set WEBHOOK_TEST_PHONE_NUMBER_ID to your SocialAccount.platform_user_id / WABA phone number id.",
-            file=sys.stderr,
-        )
+        print("Set WEBHOOK_TEST_PHONE_NUMBER_ID or META_WHATSAPP_PHONE_NUMBER_ID", file=sys.stderr)
         return 1
 
     customer_id = os.environ.get("WEBHOOK_TEST_CUSTOMER_WA_ID", "1555987654321")
     mid = os.environ.get("WEBHOOK_TEST_MESSAGE_MID", f"wamid.script_{int(time.time())}")
     text = os.environ.get("WEBHOOK_TEST_MESSAGE_TEXT", "Hello from scripts/test_whatsapp_flow.py")
 
-    payload = build_whatsapp_payload(phone_number_id, customer_id, text, mid)
+    payload = build_whatsapp_cloud_payload(phone_number_id, customer_id, text, mid)
     body_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     sig = _sign_body(body_bytes, secret)
 
     print("POST", f"{BASE}/webhooks/meta")
-    print("Payload entry id (phone_number_id):", phone_number_id)
+    print("phone_number_id:", phone_number_id)
 
     with httpx.Client(timeout=30.0) as client:
+        health = client.get(f"{BASE}/health")
+        if health.status_code != 200:
+            print("API not healthy — run ./start.sh first", file=sys.stderr)
+            return 1
+
         r = client.post(
             f"{BASE}/webhooks/meta",
             content=body_bytes,
@@ -99,22 +123,31 @@ def main() -> int:
                 "X-Hub-Signature-256": sig,
             },
         )
-    print("Response:", r.status_code, r.text[:500])
+    print("Webhook response:", r.status_code, r.text[:200])
 
-    print("\nWaiting 3s for background webhook processing…")
-    time.sleep(3)
+    if r.status_code != 200:
+        return 1
 
-    jwt = (os.environ.get("TEST_JWT") or "").strip()
-    if not jwt:
-        print(
-            "Skipping GET /api/v1/conversations (set TEST_JWT to a Clerk Bearer token for your org)."
-        )
-        return 0
+    wait = int(os.environ.get("WEBHOOK_TEST_WAIT_SEC", "5"))
+    print(f"\nWaiting {wait}s for Celery + AI reply…")
+    time.sleep(wait)
 
-    headers = {"Authorization": f"Bearer {jwt}"}
+    token = (os.environ.get("TEST_JWT") or "dev-local").strip()
+    headers = {"Authorization": f"Bearer {token}"}
     with httpx.Client(timeout=30.0) as client:
-        cr = client.get(f"{BASE}/api/v1/conversations", headers=headers, params={"limit": 50})
-    print("Conversations GET:", cr.status_code, cr.text[:2000])
+        client.post(f"{BASE}/api/v1/auth/dev-bootstrap")
+        cr = client.get(
+            f"{BASE}/api/v1/conversations",
+            headers=headers,
+            params={"limit": 20, "platform": "whatsapp"},
+        )
+    print("Conversations:", cr.status_code)
+    if cr.status_code == 200:
+        items = cr.json()
+        if isinstance(items, list) and items:
+            print(json.dumps(items[0], indent=2, default=str)[:1500])
+        else:
+            print("(no conversations yet — connect WhatsApp on Channels or set META_WHATSAPP_* in .env)")
     return 0 if cr.status_code == 200 else 1
 
 

@@ -21,6 +21,14 @@ That one script starts Postgres (Docker), runs migrations, Celery, API, and Next
 
 Optional: `bash scripts/phase1-verify.sh` to health-check.
 
+### WhatsApp (Phase 2)
+
+See **[docs/PHASE2.md](docs/PHASE2.md)** — Meta webhook, Channels connect, `bash scripts/tunnel.sh`, `python3 scripts/test_whatsapp_flow.py`.
+
+### Facebook Pages (Phase 3 beta)
+
+See **[docs/PHASE3.md](docs/PHASE3.md)** — OAuth, Page webhooks, `python3 scripts/test_facebook_flow.py`, `bash scripts/phase3-verify.sh`.
+
 Without Clerk keys, use **Continue to dashboard** on sign-in (dev auth + `POST /auth/dev-bootstrap`).
 
 ### Docker Compose (all services in containers)

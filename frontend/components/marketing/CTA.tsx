@@ -15,7 +15,7 @@ export function CTA() {
           Ready to stop <span className="heading-accent">missing messages?</span>
         </h2>
         <p className="mx-auto mt-5 max-w-xl text-lg text-slate-600">
-          Join businesses using Replyr AI to handle every customer conversation automatically — starting today.
+          Join businesses using Replyr AI to handle every customer conversation automatically starting today.
         </p>
         <Link
           href="/sign-up"

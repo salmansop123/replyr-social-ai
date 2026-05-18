@@ -22,9 +22,11 @@ from app.schemas import (
 )
 from app.services.encryption import encrypt_token
 from app.services.meta_facebook_oauth import (
+    FACEBOOK_PAGE_SCOPES,
     build_facebook_authorization_url,
     exchange_code_for_user_token,
     exchange_long_lived_user_token,
+    facebook_oauth_redirect_uri,
     list_managed_pages,
     sign_oauth_state,
     subscribe_page_webhooks,
@@ -177,6 +179,35 @@ def delete_social_account(
 class ConnectPlatformOut(BaseModel):
     oauth_url: str | None = None
     message: str | None = None
+
+
+class FacebookSetupOut(BaseModel):
+    meta_app_configured: bool
+    oauth_redirect_uri: str
+    webhook_callback_url_hint: str
+    webhook_verify_token_set: bool
+    page_scopes: list[str]
+    app_review_note: str
+
+
+@router.get("/facebook/setup", response_model=FacebookSetupOut)
+def facebook_setup_info(
+    current_user: User = Depends(get_current_user),
+) -> FacebookSetupOut:
+    """Local dev + Meta console checklist for Facebook Pages (Phase 3)."""
+    redirect = facebook_oauth_redirect_uri()
+    webhook_hint = f"{(settings.webhook_base_url or 'https://YOUR-PUBLIC-URL').rstrip('/')}/webhooks/meta"
+    return FacebookSetupOut(
+        meta_app_configured=bool(settings.meta_app_id and settings.meta_app_secret),
+        oauth_redirect_uri=redirect,
+        webhook_callback_url_hint=webhook_hint,
+        webhook_verify_token_set=bool(settings.meta_verify_token),
+        page_scopes=list(FACEBOOK_PAGE_SCOPES),
+        app_review_note=(
+            "For pages outside your Meta app roles, submit App Review for "
+            "pages_messaging and pages_manage_posts. Until approved, use test pages only (beta)."
+        ),
+    )
 
 
 @router.get("/connect/{platform}", response_model=ConnectPlatformOut)
