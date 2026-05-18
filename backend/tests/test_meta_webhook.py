@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -164,4 +164,99 @@ def test_duplicate_message_not_processed_twice(
         )
         .all()
     )
+    assert len(rows) == 1
+
+
+def _fb_comment_payload(page_id: str, comment_id: str, post_id: str, text: str) -> dict:
+    return {
+        "object": "page",
+        "entry": [
+            {
+                "id": page_id,
+                "changes": [
+                    {
+                        "field": "feed",
+                        "value": {
+                            "item": "comment",
+                            "verb": "add",
+                            "comment_id": comment_id,
+                            "post_id": post_id,
+                            "from": {"id": "user_123", "name": "Test User"},
+                            "message": text,
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def test_facebook_feed_comment_creates_conversation(
+    meta_test_secret: str,
+    sync_client: TestClient,
+    db_session: Session,
+    facebook_social_account: tuple,
+) -> None:
+    _, acc, page_id = facebook_social_account
+    payload = _fb_comment_payload(page_id, "cmt_unique_001", "post_999", "Nice product!")
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    sig = _hub_sig256(body, meta_test_secret)
+
+    with patch("app.workers.webhook_tasks.process_and_reply.delay") as delay_mock, patch(
+        "app.services.facebook_service.FacebookService.fetch_post_context",
+        new_callable=AsyncMock,
+        return_value="Summer sale — 20% off",
+    ):
+        r = sync_client.post(
+            "/webhooks/meta",
+            content=body,
+            headers={"Content-Type": "application/json", "X-Hub-Signature-256": sig},
+        )
+    assert r.status_code == 200
+    delay_mock.assert_called_once()
+
+    conv = (
+        db_session.query(Conversation)
+        .filter(
+            Conversation.social_account_id == acc.id,
+            Conversation.platform_conversation_id == "comment:cmt_unique_001",
+        )
+        .first()
+    )
+    assert conv is not None
+    assert conv.facebook_thread_type == "comment"
+    assert conv.post_context == "Summer sale — 20% off"
+    m = db_session.query(Message).filter(Message.platform_message_id == "cmt_unique_001").first()
+    assert m is not None
+    assert m.content == "Nice product!"
+
+
+def test_facebook_comment_deduped(
+    meta_test_secret: str,
+    sync_client: TestClient,
+    db_session: Session,
+    facebook_social_account: tuple,
+) -> None:
+    _, acc, page_id = facebook_social_account
+    payload = _fb_comment_payload(page_id, "cmt_dedup_002", "post_888", "Duplicate comment")
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    sig = _hub_sig256(body, meta_test_secret)
+
+    with patch("app.workers.webhook_tasks.process_and_reply.delay") as delay_mock, patch(
+        "app.services.facebook_service.FacebookService.fetch_post_context",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        sync_client.post(
+            "/webhooks/meta",
+            content=body,
+            headers={"Content-Type": "application/json", "X-Hub-Signature-256": sig},
+        )
+        sync_client.post(
+            "/webhooks/meta",
+            content=body,
+            headers={"Content-Type": "application/json", "X-Hub-Signature-256": sig},
+        )
+    assert delay_mock.call_count == 1
+    rows = db_session.query(Message).filter(Message.platform_message_id == "cmt_dedup_002").all()
     assert len(rows) == 1

@@ -69,7 +69,7 @@ class AIAgentService:
     ) -> str:
         knowledge_block = ""
         if business_knowledge and business_knowledge.strip():
-            knowledge_block = business_knowledge.strip()
+            knowledge_block = "## Business Knowledge\n\n" + business_knowledge.strip()
 
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             business_name=organization.name,

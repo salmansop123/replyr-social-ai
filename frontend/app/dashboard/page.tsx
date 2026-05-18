@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useApi } from "@/lib/api";
+import { useSessionBootstrap } from "@/components/dashboard/SessionBootstrap";
 import { useQueryErrorToast } from "@/lib/use-query-error-toast";
 import { AnalyticsActivityChart, type TsPoint } from "@/components/dashboard/AnalyticsAreaChart";
 import { PlatformCard } from "@/components/dashboard/PlatformCard";
@@ -22,6 +23,7 @@ type Summary = {
   platforms: {
     platform: string;
     comments_received: number;
+    dms_received?: number;
     ai_replies_sent: number;
     leads_captured: number;
     connected: boolean;
@@ -55,19 +57,25 @@ function RowPlatformIcon({ platform }: { platform: string }) {
 
 export default function DashboardHome() {
   const api = useApi();
+  const { ready: sessionReady } = useSessionBootstrap();
   const summary = useQuery({
     queryKey: ["analytics", "summary"],
     queryFn: async () => {
       const res = await api.get<Summary>("/analytics/summary", { params: { latest_limit: 12 } });
       return res.data;
     },
+    enabled: sessionReady,
   });
   const series = useQuery({
     queryKey: ["analytics", "timeseries", 30],
     queryFn: async () => {
-      const res = await api.get<{ points: TsPoint[] }>("/analytics/timeseries", { params: { days: 30 } });
+      const res = await api.get<{ points: TsPoint[]; by_platform?: Record<string, TsPoint[]> }>(
+        "/analytics/timeseries",
+        { params: { days: 30 } },
+      );
       return res.data;
     },
+    enabled: sessionReady,
   });
 
   useQueryErrorToast(summary.isError, "Could not load analytics. Check the API and your session.");
@@ -202,7 +210,10 @@ export default function DashboardHome() {
           {series.isLoading ? (
             <div className="h-[300px] animate-pulse rounded-2xl bg-slate-100/80" />
           ) : (
-            <AnalyticsActivityChart points={series.data?.points ?? []} />
+            <AnalyticsActivityChart
+              points={series.data?.points ?? []}
+              facebookPoints={series.data?.by_platform?.facebook}
+            />
           )}
         </div>
       </div>

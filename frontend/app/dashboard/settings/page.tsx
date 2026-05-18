@@ -1,8 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useClerk, useUser } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { Check, ChevronDown, ChevronRight, Info, Loader2 } from "lucide-react";
@@ -11,6 +11,8 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useApi } from "@/lib/api";
+import { UsageQuotaBanner } from "@/components/dashboard/UsageQuotaBanner";
+import { useSessionBootstrap } from "@/components/dashboard/SessionBootstrap";
 import { useAuthToken } from "@/components/auth/AuthAndClerkProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,19 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+
+const SettingsAccountClerkBody = dynamic(
+  () =>
+    import("@/components/dashboard/SettingsAccountClerkBody").then((m) => m.SettingsAccountClerkBody),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex justify-center py-6">
+        <Loader2 className="h-6 w-6 animate-spin text-electric" />
+      </div>
+    ),
+  },
+);
 
 const MAX_PROMPT = 2000;
 
@@ -332,49 +347,6 @@ function orgMeFailureCopy(
   };
 }
 
-/** Only mount when `ClerkProvider` is present (`isClerkActive === true`). */
-function SettingsAccountClerkBody({ planLabel, orgCreatedAt }: { planLabel: string; orgCreatedAt: string }) {
-  const { user } = useUser();
-  const clerk = useClerk();
-
-  return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <Label className="text-slate-500">Name</Label>
-          <div className="mt-1 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-800">{user?.fullName || "—"}</div>
-        </div>
-        <div>
-          <Label className="text-slate-500">Email</Label>
-          <div className="mt-1 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-800">
-            {user?.primaryEmailAddress?.emailAddress || "—"}
-          </div>
-        </div>
-        <div>
-          <Label className="text-slate-500">Account created</Label>
-          <div className="mt-1 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-800">
-            {new Date(orgCreatedAt).toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </div>
-        </div>
-        <div>
-          <Label className="text-slate-500">Current plan</Label>
-          <div className="mt-1 flex items-center gap-2">
-            <Badge className="capitalize">{planLabel}</Badge>
-          </div>
-        </div>
-      </div>
-      <Separator />
-      <Button type="button" variant="outline" onClick={() => clerk.openUserProfile?.()}>
-        Manage Profile &amp; Password →
-      </Button>
-    </>
-  );
-}
-
 /** No Clerk hooks — for dev without Clerk keys. */
 function SettingsAccountOfflineBody({ planLabel, orgCreatedAt }: { planLabel: string; orgCreatedAt: string }) {
   return (
@@ -418,6 +390,12 @@ export default function SettingsPage() {
   const api = useApi();
   const qc = useQueryClient();
   const { isClerkActive } = useAuthToken();
+  const { ready: sessionReady } = useSessionBootstrap();
+  const [clientReady, setClientReady] = useState(false);
+
+  useEffect(() => {
+    setClientReady(true);
+  }, []);
 
   const [dangerOpen, setDangerOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -438,6 +416,7 @@ export default function SettingsPage() {
       const res = await api.get<OrgMe>("/org/me");
       return res.data;
     },
+    enabled: sessionReady,
     retry: 1,
   });
 
@@ -693,6 +672,8 @@ export default function SettingsPage() {
           Configure your AI agent and workspace preferences.
         </p>
       </div>
+
+      <UsageQuotaBanner />
 
       {settingsPreviewOnly && (
         <div className="flex items-start gap-3 rounded-xl border border-sky-200/90 bg-sky-50/90 px-4 py-3 text-sm text-sky-950">
@@ -1163,7 +1144,11 @@ export default function SettingsPage() {
           <CardDescription>Manage your personal profile and password in Clerk.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isClerkActive ? (
+          {!clientReady ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-electric" />
+            </div>
+          ) : isClerkActive ? (
             <SettingsAccountClerkBody planLabel={planLabel} orgCreatedAt={org.created_at} />
           ) : (
             <SettingsAccountOfflineBody planLabel={planLabel} orgCreatedAt={org.created_at} />

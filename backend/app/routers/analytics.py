@@ -19,6 +19,7 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 class PlatformSummary(BaseModel):
     platform: str
     comments_received: int
+    dms_received: int = 0
     ai_replies_sent: int
     leads_captured: int
     connected: bool
@@ -47,6 +48,7 @@ class TimeseriesPoint(BaseModel):
 
 class AnalyticsTimeseriesOut(BaseModel):
     points: list[TimeseriesPoint]
+    by_platform: dict[str, list[TimeseriesPoint]] = {}
 
 
 @router.get("/summary", response_model=AnalyticsSummaryOut)
@@ -70,8 +72,15 @@ def analytics_timeseries(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AnalyticsTimeseriesOut:
-    points = [TimeseriesPoint(**p) for p in build_timeseries(db, current_user.organization_id, days)]
-    return AnalyticsTimeseriesOut(points=points)
+    raw = build_timeseries(db, current_user.organization_id, days)
+    by_platform = {
+        platform: [TimeseriesPoint(**p) for p in series]
+        for platform, series in raw.get("by_platform", {}).items()
+    }
+    return AnalyticsTimeseriesOut(
+        points=[TimeseriesPoint(**p) for p in raw["points"]],
+        by_platform=by_platform,
+    )
 
 
 @router.get("/latest-inbound", response_model=list[LatestInboundItem])

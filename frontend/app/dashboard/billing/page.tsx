@@ -1,10 +1,11 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, ExternalLink, Info } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, ExternalLink, Info } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PackagesSection } from "@/components/dashboard/PackagesSection";
+import { UsageQuotaBanner } from "@/components/dashboard/UsageQuotaBanner";
 import {
   DEMO_INVOICES,
   DEMO_SUBSCRIPTION,
@@ -203,6 +204,7 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-10 pb-12">
+      <UsageQuotaBanner />
       {isPreview && (
         <div className="flex items-start gap-3 rounded-xl border border-sky-200/90 bg-sky-50/90 px-4 py-3 text-sm text-sky-950">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" aria-hidden />
@@ -387,8 +389,9 @@ export default function BillingPage() {
                                 href={inv.pdf_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="font-semibold text-blue-600 hover:underline"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-electric/10 px-2.5 py-1 text-xs font-bold text-electric hover:bg-electric/15"
                               >
+                                <Download className="h-3.5 w-3.5" />
                                 PDF
                               </a>
                             ) : isPreview ? (

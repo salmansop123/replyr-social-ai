@@ -36,6 +36,8 @@ class Conversation(Base):
     sentiment: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_human_takeover: Mapped[bool] = mapped_column(Boolean, default=False)
     post_context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    facebook_thread_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    facebook_post_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -8,6 +8,7 @@ from app.dependencies import get_clerk_jwt_payload
 from app.models.organization import Organization
 from app.models.user import User
 from app.schemas import UserSyncIn
+from app.services.dev_auth import dev_auth_allowed, get_or_create_dev_user, require_dev_auth_enabled
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -34,6 +35,7 @@ def apply_user_sync(db: Session, body: UserSyncIn) -> dict:
             clerk_org_id=body.clerk_org_id,
             name=body.name or body.email or "My business",
             slug=slug,
+            escalation_keywords=[],
         )
         db.add(org)
         db.flush()
@@ -80,6 +82,20 @@ def _claims_to_user_sync(payload: dict) -> UserSyncIn:
 def sync_user(body: UserSyncIn, db: Session = Depends(get_db)) -> dict:
     """Create organization + user from Clerk (called from Next.js webhook)."""
     return apply_user_sync(db, body)
+
+
+@router.post("/dev-bootstrap")
+def dev_bootstrap(db: Session = Depends(get_db)) -> dict:
+    """Provision a local dev user when Clerk is not configured (development only)."""
+    require_dev_auth_enabled()
+    user = get_or_create_dev_user(db)
+    return {
+        "ok": True,
+        "created": True,
+        "user_id": str(user.id),
+        "organization_id": str(user.organization_id),
+        "mode": "dev",
+    }
 
 
 @router.post("/bootstrap")

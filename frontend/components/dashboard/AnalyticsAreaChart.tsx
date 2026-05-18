@@ -10,8 +10,14 @@ function maxVal(points: TsPoint[]) {
   return m;
 }
 
-export function AnalyticsActivityChart({ points }: { points: TsPoint[] }) {
-  if (!points.length) {
+type Props = {
+  points: TsPoint[];
+  facebookPoints?: TsPoint[];
+};
+
+export function AnalyticsActivityChart({ points, facebookPoints }: Props) {
+  const fb = facebookPoints ?? [];
+  if (!points.length && !fb.length) {
     return (
       <div className="flex h-[280px] items-center justify-center rounded-2xl border border-dashed border-slate-200/80 bg-white/50 text-sm text-slate-500">
         No activity in this range yet.
@@ -19,14 +25,17 @@ export function AnalyticsActivityChart({ points }: { points: TsPoint[] }) {
     );
   }
 
-  const cap = maxVal(points);
-  const last = points.slice(-14);
+  const cap = maxVal(points.length ? points : fb);
+  const last = (points.length ? points : fb).slice(-14);
+  const fbByDate = new Map(fb.map((p) => [p.date, p]));
 
   return (
     <div className="space-y-4">
       <div className="flex h-[240px] items-end gap-1 sm:gap-1.5">
         {last.map((p) => {
+          const fbPoint = fbByDate.get(p.date);
           const hIn = (p.inbound / cap) * 100;
+          const hFb = fbPoint ? (fbPoint.inbound / cap) * 100 : 0;
           const hOut = (p.outbound / cap) * 100;
           const hLead = (p.leads / cap) * 100;
           return (
@@ -35,27 +44,36 @@ export function AnalyticsActivityChart({ points }: { points: TsPoint[] }) {
                 <div
                   className="w-full rounded-t-sm bg-gradient-to-t from-electric to-electric-bright opacity-90 transition-all group-hover:opacity-100"
                   style={{ height: `${Math.max(4, hIn)}%` }}
-                  title={`Inbound: ${p.inbound}`}
+                  title={`All inbound: ${p.inbound}`}
                 />
+                {fb.length > 0 && (
+                  <div
+                    className="w-full bg-gradient-to-t from-fb to-fb/70 opacity-90 transition-all group-hover:opacity-100"
+                    style={{ height: `${Math.max(2, hFb)}%` }}
+                    title={`Facebook inbound: ${fbPoint?.inbound ?? 0}`}
+                  />
+                )}
                 <div
                   className="w-full bg-gradient-to-t from-teal-brand to-accent-cyan opacity-90 transition-all group-hover:opacity-100"
                   style={{ height: `${Math.max(2, hOut)}%` }}
                   title={`Outbound: ${p.outbound}`}
                 />
                 <div
-                  className="w-full rounded-b-sm bg-gradient-to-t from-fb/90 to-electric-bright opacity-90 transition-all group-hover:opacity-100"
+                  className="w-full rounded-b-sm bg-gradient-to-t from-slate-400/80 to-slate-300/80 opacity-90 transition-all group-hover:opacity-100"
                   style={{ height: `${Math.max(2, hLead)}%` }}
                   title={`Leads: ${p.leads}`}
                 />
               </div>
-              <span className="hidden rotate-0 text-[9px] font-medium text-slate-400 sm:block">
+              <span className="hidden text-[9px] font-medium text-slate-400 sm:block">
                 {p.date.slice(5).replace("-", "/")}
               </span>
             </div>
           );
         })}
       </div>
-      <p className="text-center text-xs text-slate-500">Last 14 days shown · hover segments for counts (via tooltip title)</p>
+      <p className="text-center text-xs text-slate-500">
+        Last 14 days · blue = all inbound, Facebook blue segment = Facebook inbound only
+      </p>
     </div>
   );
 }

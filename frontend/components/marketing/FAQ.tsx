@@ -34,7 +34,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: "Do you offer a free trial?",
-    a: "Yes — 14 days free, no credit card required. Full access to all Professional plan features during the trial.",
+    a: "Yes 14 days free, no credit card required. Full access to all Professional plan features during the trial.",
   },
 ];
 

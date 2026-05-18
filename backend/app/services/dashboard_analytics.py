@@ -46,6 +46,33 @@ def count_inbound_messages_by_platform(
     return {platform: int(cnt) for platform, cnt in rows}
 
 
+def count_facebook_inbound_split(
+    db: Session, org_id: UUID, start: datetime, end: datetime
+) -> tuple[int, int]:
+    """Returns (comments, dms) for Facebook inbound messages this period."""
+    rows = (
+        db.query(Conversation.facebook_thread_type, func.count(Message.id))
+        .join(Message, Message.conversation_id == Conversation.id)
+        .filter(
+            Conversation.organization_id == org_id,
+            Conversation.platform == "facebook",
+            Message.direction == "inbound",
+            Message.created_at >= start,
+            Message.created_at <= end,
+        )
+        .group_by(Conversation.facebook_thread_type)
+        .all()
+    )
+    comments = 0
+    dms = 0
+    for thread_type, cnt in rows:
+        if thread_type == "comment":
+            comments += int(cnt)
+        else:
+            dms += int(cnt)
+    return comments, dms
+
+
 def count_ai_outbound_by_platform(
     db: Session, org_id: UUID, start: datetime, end: datetime
 ) -> dict[str, int]:
@@ -104,67 +131,104 @@ def build_platform_summary(db: Session, org_id: UUID) -> list[dict]:
     ai_out = count_ai_outbound_by_platform(db, org_id, start, end)
     leads = count_leads_by_platform(db, org_id, start, end)
     connected = connected_platforms(db, org_id)
-    return [
-        {
+    fb_comments, fb_dms = count_facebook_inbound_split(db, org_id, start, end)
+
+    rows: list[dict] = []
+    for p in PLATFORMS:
+        row = {
             "platform": p,
             "comments_received": inbound.get(p, 0),
             "ai_replies_sent": ai_out.get(p, 0),
             "leads_captured": leads.get(p, 0),
             "connected": p in connected,
         }
-        for p in PLATFORMS
-    ]
+        if p == "facebook":
+            row["comments_received"] = fb_comments
+            row["dms_received"] = fb_dms
+        else:
+            row["dms_received"] = inbound.get(p, 0)
+        rows.append(row)
+    return rows
 
 
-def build_timeseries(db: Session, org_id: UUID, days: int) -> list[dict]:
+def _day_counts(
+    db: Session,
+    org_id: UUID,
+    day_start: datetime,
+    day_end: datetime,
+    *,
+    platform: str | None = None,
+) -> tuple[int, int, int]:
+    inbound_q = (
+        db.query(func.count(Message.id))
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .filter(
+            Conversation.organization_id == org_id,
+            Message.direction == "inbound",
+            Message.created_at >= day_start,
+            Message.created_at < day_end,
+        )
+    )
+    outbound_q = (
+        db.query(func.count(Message.id))
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .filter(
+            Conversation.organization_id == org_id,
+            Message.direction == "outbound",
+            Message.created_at >= day_start,
+            Message.created_at < day_end,
+        )
+    )
+    if platform:
+        inbound_q = inbound_q.filter(Conversation.platform == platform)
+        outbound_q = outbound_q.filter(Conversation.platform == platform)
+
+    inbound = inbound_q.scalar() or 0
+    outbound = outbound_q.scalar() or 0
+    leads = (
+        db.query(func.count(Lead.id))
+        .filter(
+            Lead.organization_id == org_id,
+            Lead.created_at >= day_start,
+            Lead.created_at < day_end,
+            *([Lead.source_platform == platform] if platform else []),
+        )
+        .scalar()
+    ) or 0
+    return int(inbound), int(outbound), int(leads)
+
+
+def build_timeseries(db: Session, org_id: UUID, days: int) -> dict:
     days = max(1, min(days, 366))
     end_day = datetime.now(timezone.utc).date()
     start_day = end_day - timedelta(days=days - 1)
     points: list[dict] = []
+    by_platform: dict[str, list[dict]] = {p: [] for p in PLATFORMS}
+
     for i in range(days):
         d = start_day + timedelta(days=i)
         day_start = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
         day_end = day_start + timedelta(days=1)
-        inbound = (
-            db.query(func.count(Message.id))
-            .join(Conversation, Message.conversation_id == Conversation.id)
-            .filter(
-                Conversation.organization_id == org_id,
-                Message.direction == "inbound",
-                Message.created_at >= day_start,
-                Message.created_at < day_end,
-            )
-            .scalar()
-        ) or 0
-        outbound = (
-            db.query(func.count(Message.id))
-            .join(Conversation, Message.conversation_id == Conversation.id)
-            .filter(
-                Conversation.organization_id == org_id,
-                Message.direction == "outbound",
-                Message.created_at >= day_start,
-                Message.created_at < day_end,
-            )
-            .scalar()
-        ) or 0
-        leads = (
-            db.query(func.count(Lead.id))
-            .filter(
-                Lead.organization_id == org_id,
-                Lead.created_at >= day_start,
-                Lead.created_at < day_end,
-            )
-            .scalar()
-        ) or 0
+        inbound, outbound, leads = _day_counts(db, org_id, day_start, day_end)
         points.append(
             {
                 "date": d.isoformat(),
-                "inbound": int(inbound),
-                "outbound": int(outbound),
-                "leads": int(leads),
+                "inbound": inbound,
+                "outbound": outbound,
+                "leads": leads,
             }
         )
-    return points
+        for p in PLATFORMS:
+            p_in, p_out, p_leads = _day_counts(db, org_id, day_start, day_end, platform=p)
+            by_platform[p].append(
+                {
+                    "date": d.isoformat(),
+                    "inbound": p_in,
+                    "outbound": p_out,
+                    "leads": p_leads,
+                }
+            )
+    return {"points": points, "by_platform": by_platform}
 
 
 def latest_inbound_feed(db: Session, org_id: UUID, limit: int = 20) -> list[dict]:

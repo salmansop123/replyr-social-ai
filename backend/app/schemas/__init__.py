@@ -99,6 +99,9 @@ class ConversationOut(BaseModel):
     status: str
     sentiment: str | None
     is_human_takeover: bool
+    facebook_thread_type: str | None = None
+    post_context: str | None = None
+    facebook_post_id: str | None = None
     created_at: datetime
     updated_at: datetime
     last_message_preview: str | None = None
@@ -152,6 +155,8 @@ class SocialAccountListItemOut(BaseModel):
     platform_user_id: str
     display_name: str | None
     is_active: bool
+    token_expires_at: datetime | None = None
+    last_webhook_received_at: datetime | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

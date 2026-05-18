@@ -4,9 +4,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(".env", ".env.local"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     app_env: str = "development"
+    dev_auth_enabled: bool = False
     secret_key: str
     frontend_url: str = "http://localhost:3000"
     encryption_key: str
@@ -42,6 +47,8 @@ class Settings(BaseSettings):
     meta_whatsapp_access_token: str = ""
     # WABA phone number ID (digits) — used in POST .../v18.0/{PHONE_NUMBER_ID}/messages
     meta_whatsapp_phone_number_id: str = ""
+    # Facebook Pages OAuth callback (must match Meta app settings)
+    meta_oauth_redirect_uri: str = ""
 
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""

@@ -77,3 +77,39 @@ def whatsapp_social_account(
         db_session.delete(acc)
         db_session.delete(org)
         db_session.commit()
+
+
+@pytest.fixture
+def facebook_social_account(
+    db_session: Session,
+) -> Generator[tuple[Organization, SocialAccount, str], None, None]:
+    page_id = f"test_page_{uuid.uuid4().hex[:12]}"
+    org = Organization(
+        name="Facebook Webhook Test Org",
+        slug=f"fb-test-{uuid.uuid4().hex[:8]}",
+        subscription_tier="starter",
+    )
+    db_session.add(org)
+    db_session.flush()
+    acc = SocialAccount(
+        organization_id=org.id,
+        platform="facebook",
+        platform_user_id=page_id,
+        display_name="Test FB Page",
+        access_token="plain-test-token",
+        is_active=True,
+    )
+    db_session.add(acc)
+    db_session.commit()
+    db_session.refresh(org)
+    db_session.refresh(acc)
+    try:
+        yield org, acc, page_id
+    finally:
+        convs = db_session.query(Conversation).filter(Conversation.social_account_id == acc.id).all()
+        for c in convs:
+            db_session.query(Message).filter(Message.conversation_id == c.id).delete()
+            db_session.delete(c)
+        db_session.delete(acc)
+        db_session.delete(org)
+        db_session.commit()

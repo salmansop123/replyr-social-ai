@@ -2,7 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useApi } from "@/lib/api";
 import { useQueryErrorToast } from "@/lib/use-query-error-toast";
@@ -10,6 +11,9 @@ import { FacebookGlyph } from "@/components/brand/FacebookGlyph";
 import { WhatsAppGlyph } from "@/components/brand/WhatsAppGlyph";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { WebhookHealthBadge } from "@/components/dashboard/WebhookHealthBadge";
+
+const FB_BLUE = "#1877F2";
 
 type Account = {
   id: string;
@@ -17,17 +21,45 @@ type Account = {
   platform_user_id: string;
   display_name: string | null;
   is_active: boolean;
+  token_expires_at: string | null;
+  last_webhook_received_at: string | null;
   created_at: string;
 };
 
-export default function ChannelsAccountsPage() {
+function formatWebhookTime(iso: string | null) {
+  if (!iso) return "No webhooks received yet";
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "—";
+  }
+}
+
+function ChannelsAccountsContent() {
   const api = useApi();
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
   const [fbMsg, setFbMsg] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [displayName, setDisplayName] = useState("");
+
+  useEffect(() => {
+    const fb = searchParams.get("facebook");
+    if (fb === "connected") {
+      toast.success("Facebook Page connected.");
+      void qc.invalidateQueries({ queryKey: ["social", "accounts"] });
+    } else if (fb === "error") {
+      const reason = searchParams.get("reason") || "unknown";
+      toast.error(`Facebook connection failed (${reason}). Try again or check Meta app settings.`);
+    }
+  }, [searchParams, qc]);
 
   const accountsQuery = useQuery({
     queryKey: ["social", "accounts"],
@@ -61,7 +93,10 @@ export default function ChannelsAccountsPage() {
         const data = (err as { response?: { data?: { detail?: unknown } } }).response?.data;
         const d = data?.detail;
         if (typeof d === "string") msg = d;
-        else if (Array.isArray(d)) msg = d.map((x) => (typeof x === "object" && x && "msg" in x ? String((x as { msg: string }).msg) : JSON.stringify(x))).join(" ");
+        else if (Array.isArray(d))
+          msg = d
+            .map((x) => (typeof x === "object" && x && "msg" in x ? String((x as { msg: string }).msg) : JSON.stringify(x)))
+            .join(" ");
       }
       toast.error(msg);
     },
@@ -83,6 +118,17 @@ export default function ChannelsAccountsPage() {
   const waAccounts = data.filter((a) => a.platform === "whatsapp" && a.is_active);
   const fbAccounts = data.filter((a) => a.platform === "facebook" && a.is_active);
   const waConnected = waAccounts.length > 0;
+  const fbConnected = fbAccounts.length > 0;
+  const latestFbWebhook = fbAccounts.reduce<string | null>((latest, a) => {
+    if (!a.last_webhook_received_at) return latest;
+    if (!latest || a.last_webhook_received_at > latest) return a.last_webhook_received_at;
+    return latest;
+  }, null);
+  const latestWaWebhook = waAccounts.reduce<string | null>((latest, a) => {
+    if (!a.last_webhook_received_at) return latest;
+    if (!latest || a.last_webhook_received_at > latest) return a.last_webhook_received_at;
+    return latest;
+  }, null);
 
   async function onConnectFacebook() {
     setFbMsg(null);
@@ -103,7 +149,7 @@ export default function ChannelsAccountsPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Channels</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Connect WhatsApp manually (testing) or Facebook when OAuth is ready. Tokens are encrypted on the server.
+          Connect WhatsApp manually (testing) or Facebook Pages via OAuth. Tokens are encrypted on the server.
         </p>
       </div>
 
@@ -158,6 +204,7 @@ export default function ChannelsAccountsPage() {
                     {a.display_name && <p className="mt-1 text-sm text-slate-600">{a.display_name}</p>}
                   </div>
                 ))}
+                <WebhookHealthBadge lastWebhookAt={latestWaWebhook} />
               </div>
             )}
 
@@ -244,30 +291,87 @@ export default function ChannelsAccountsPage() {
         </div>
 
         <div className="glass-card relative overflow-hidden p-8">
-          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-gradient-to-br from-[#0866FF]/20 to-electric/15 blur-3xl" />
+          <div
+            className="absolute -right-20 -top-20 h-56 w-56 rounded-full blur-3xl"
+            style={{ background: `linear-gradient(to bottom right, ${FB_BLUE}33, rgba(6, 182, 212, 0.15))` }}
+          />
           <div className="relative flex flex-col gap-6">
             <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white shadow-md ring-2 ring-[#0866FF]/30">
-                <FacebookGlyph className="h-8 w-8" />
+              <div
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white shadow-md"
+                style={{ backgroundColor: FB_BLUE }}
+              >
+                <FacebookGlyph className="h-7 w-7 text-white" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h2 className="text-xl font-bold text-slate-900">Facebook Pages</h2>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  OAuth-based Page connection for Messenger and Page events — same inbox controls as WhatsApp.
+                  OAuth Page connection for comments, Messenger DMs, and feed context for AI replies.
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onConnectFacebook}
-              className={cn(
-                "w-full rounded-xl border border-[#0866FF]/40 bg-[#0866FF] px-6 py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#0756d9] sm:w-auto sm:self-start",
-              )}
-            >
-              Connect Facebook (OAuth)
-            </button>
-            {fbMsg && (
-              <p className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">{fbMsg}</p>
+
+            {accountsQuery.isLoading && (
+              <div className="space-y-3">
+                <Skeleton className="h-10 w-full rounded-xl" />
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </div>
+            )}
+
+            {!accountsQuery.isLoading && fbConnected && (
+              <div
+                className="space-y-4 rounded-2xl border p-4"
+                style={{ borderColor: `${FB_BLUE}40`, backgroundColor: `${FB_BLUE}08` }}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span
+                    className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
+                    style={{ backgroundColor: FB_BLUE }}
+                  >
+                    Connected
+                  </span>
+                  {fbAccounts.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      disabled={disconnect.isPending}
+                      onClick={() => disconnect.mutate(a.id)}
+                      className="rounded-xl border border-red-200 bg-white px-4 py-2 text-xs font-semibold text-red-800 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Disconnect
+                    </button>
+                  ))}
+                </div>
+                {fbAccounts.map((a) => (
+                  <div key={a.id}>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Page name</p>
+                    <p className="mt-1 text-sm font-medium text-slate-900">{a.display_name || "Facebook Page"}</p>
+                    <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Page ID</p>
+                    <p className="mt-1 font-mono text-sm text-slate-900">{a.platform_user_id}</p>
+                  </div>
+                ))}
+                <WebhookHealthBadge lastWebhookAt={latestFbWebhook} />
+              </div>
+            )}
+
+            {!accountsQuery.isLoading && !fbConnected && (
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={onConnectFacebook}
+                  className={cn(
+                    "w-full rounded-xl px-6 py-3 text-sm font-bold text-white shadow-md transition hover:opacity-95",
+                  )}
+                  style={{ backgroundColor: FB_BLUE }}
+                >
+                  Connect with Facebook
+                </button>
+                {fbMsg && (
+                  <p className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+                    {fbMsg}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -289,22 +393,26 @@ export default function ChannelsAccountsPage() {
         {!accountsQuery.isLoading && waAccounts.length === 0 && fbAccounts.length === 0 && (
           <div className="mt-8 rounded-2xl border border-dashed border-slate-200/80 bg-white/60 px-6 py-14 text-center">
             <p className="text-sm font-medium text-slate-700">No active channels yet.</p>
-            <p className="mt-2 text-sm text-slate-500">Connect WhatsApp above or use Facebook when OAuth is live.</p>
+            <p className="mt-2 text-sm text-slate-500">Connect WhatsApp or Facebook above.</p>
           </div>
         )}
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           {[...waAccounts, ...fbAccounts].map((a) => (
             <div
               key={a.id}
-              className={`group rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${
-                a.platform === "facebook" ? "hover:border-[#0866FF]/35" : "hover:border-emerald-300/60"
-              }`}
+              className={cn(
+                "group rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md",
+                a.platform === "facebook" ? "hover:border-fb/35" : "hover:border-emerald-300/60",
+              )}
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   {a.platform === "facebook" ? (
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-[#0866FF]/25">
-                      <FacebookGlyph className="h-5 w-5" />
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white"
+                      style={{ backgroundColor: FB_BLUE }}
+                    >
+                      <FacebookGlyph className="h-5 w-5 text-white" />
                     </span>
                   ) : (
                     <span
@@ -323,6 +431,9 @@ export default function ChannelsAccountsPage() {
                 </span>
               </div>
               <p className="mt-2 font-mono text-xs text-slate-500">ID: {a.platform_user_id}</p>
+              {a.platform === "facebook" && (
+                <p className="mt-1 text-xs text-slate-500">Last webhook: {formatWebhookTime(a.last_webhook_received_at)}</p>
+              )}
               <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{a.platform}</p>
               <button
                 type="button"
@@ -337,5 +448,23 @@ export default function ChannelsAccountsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ChannelsAccountsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-8">
+          <div className="h-8 w-48 animate-pulse rounded-lg bg-slate-100" />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />
+            <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />
+          </div>
+        </div>
+      }
+    >
+      <ChannelsAccountsContent />
+    </Suspense>
   );
 }

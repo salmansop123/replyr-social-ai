@@ -68,6 +68,9 @@ def _to_conversation_out(c: Conversation, preview: str | None) -> ConversationOu
         status=c.status,
         sentiment=c.sentiment,
         is_human_takeover=c.is_human_takeover,
+        facebook_thread_type=c.facebook_thread_type,
+        post_context=c.post_context,
+        facebook_post_id=c.facebook_post_id,
         created_at=c.created_at,
         updated_at=c.updated_at,
         last_message_preview=preview,
@@ -78,6 +81,10 @@ def _to_conversation_out(c: Conversation, preview: str | None) -> ConversationOu
 def list_conversations(
     status: str | None = None,
     platform: str | None = None,
+    thread_type: str | None = Query(
+        None,
+        description="Facebook only: comment or dm (omit for all thread types)",
+    ),
     q: str | None = Query(None, description="Search customer name or message content (case-insensitive)"),
     updated_from: datetime | None = Query(None),
     updated_to: datetime | None = Query(None),
@@ -91,6 +98,8 @@ def list_conversations(
         query = query.filter(Conversation.status == status)
     if platform:
         query = query.filter(Conversation.platform == platform)
+    if thread_type and thread_type.strip().lower() in ("comment", "dm"):
+        query = query.filter(Conversation.facebook_thread_type == thread_type.strip().lower())
     if updated_from is not None:
         query = query.filter(Conversation.updated_at >= updated_from)
     if updated_to is not None:
@@ -127,9 +136,13 @@ def get_conversation(
         id=c.id,
         platform=c.platform,
         customer_name=c.customer_name,
+        customer_platform_id=c.customer_platform_id,
         status=c.status,
         sentiment=c.sentiment,
         is_human_takeover=c.is_human_takeover,
+        facebook_thread_type=c.facebook_thread_type,
+        post_context=c.post_context,
+        facebook_post_id=c.facebook_post_id,
         created_at=c.created_at,
         updated_at=c.updated_at,
         last_message_preview=preview,

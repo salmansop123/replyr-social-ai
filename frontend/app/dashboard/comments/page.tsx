@@ -5,11 +5,18 @@ import { Phone } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useApi } from "@/lib/api";
+import { useSessionBootstrap } from "@/components/dashboard/SessionBootstrap";
 import { useQueryErrorToast } from "@/lib/use-query-error-toast";
 import { AppLogo } from "@/components/brand/AppLogo";
 import { ChannelBadges } from "@/components/brand/ChannelBadges";
 import { FacebookGlyph } from "@/components/brand/FacebookGlyph";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FacebookThreadPanel } from "@/components/dashboard/FacebookThreadPanel";
+import {
+  InboxPlatformFilters,
+  type PlatformFilter,
+  type ThreadTypeFilter,
+} from "@/components/dashboard/InboxPlatformFilters";
 
 const WA_GREEN = "#25D366";
 
@@ -21,6 +28,7 @@ type ConversationRow = {
   status: string;
   sentiment: string | null;
   is_human_takeover: boolean;
+  facebook_thread_type?: string | null;
   created_at: string;
   updated_at: string;
   last_message_preview: string | null;
@@ -34,7 +42,11 @@ type MessageRow = {
   created_at: string;
 };
 
-type ConversationDetail = ConversationRow & { messages: MessageRow[] };
+type ConversationDetail = ConversationRow & {
+  messages: MessageRow[];
+  post_context?: string | null;
+  facebook_post_id?: string | null;
+};
 
 function formatWaPhoneDisplay(raw: string | null | undefined): string {
   if (!raw?.trim()) return "";
@@ -54,7 +66,10 @@ function threadDisplayName(c: ConversationRow): string {
   return "Customer";
 }
 
-function statusBadgeClass(status: string) {
+function statusBadgeClass(status: string, escalated?: boolean) {
+  if (escalated || status.toLowerCase() === "escalated") {
+    return "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-[0_4px_14px_-4px_rgba(249,115,22,0.55)] ring-2 ring-orange-300/60";
+  }
   switch (status.toLowerCase()) {
     case "pending":
       return "bg-amber-50 text-amber-900 ring-amber-200/90";
@@ -62,16 +77,20 @@ function statusBadgeClass(status: string) {
       return "bg-emerald-50 text-emerald-900 ring-emerald-200/90";
     case "ignored":
       return "bg-slate-100 text-slate-600 ring-slate-200/90";
+    case "limit_reached":
+      return "bg-red-50 text-red-800 ring-red-200/90";
     default:
       return "bg-violet-50 text-violet-800 ring-violet-200/80";
   }
 }
 
-function statusLabel(status: string) {
+function statusLabel(status: string, escalated?: boolean) {
+  if (escalated || status.toLowerCase() === "escalated") return "Escalated";
   const s = status.toLowerCase();
   if (s === "pending") return "Pending";
   if (s === "answered") return "Answered";
   if (s === "ignored") return "Ignored";
+  if (s === "limit_reached") return "Limit reached";
   return status.replace(/_/g, " ");
 }
 
@@ -123,24 +142,28 @@ function ConversationListSkeleton() {
 
 export default function InboxPage() {
   const api = useApi();
+  const { ready: sessionReady } = useSessionBootstrap();
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [platformFilter, setPlatformFilter] = useState<"all" | "whatsapp" | "facebook">("all");
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
+  const [threadTypeFilter, setThreadTypeFilter] = useState<ThreadTypeFilter>("all");
   const [draftReply, setDraftReply] = useState("");
 
   const list = useQuery({
-    queryKey: ["conversations", platformFilter, search],
+    queryKey: ["conversations", platformFilter, threadTypeFilter, search],
     queryFn: async () => {
       const res = await api.get<ConversationRow[]>("/conversations", {
         params: {
           limit: 80,
           ...(platformFilter !== "all" ? { platform: platformFilter } : {}),
+          ...(threadTypeFilter !== "all" ? { thread_type: threadTypeFilter } : {}),
           ...(search.trim() ? { q: search.trim() } : {}),
         },
       });
       return res.data;
     },
+    enabled: sessionReady,
   });
 
   const detail = useQuery({
@@ -221,28 +244,26 @@ export default function InboxPage() {
           </span>
         </div>
 
-        <div className="glass-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-          <label className="flex shrink-0 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Platform
-            <select
-              value={platformFilter}
-              onChange={(e) => {
-                setPlatformFilter(e.target.value as "all" | "whatsapp" | "facebook");
-                setSelectedId(null);
-              }}
-              className="min-w-[160px] rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm outline-none ring-electric/20 focus:ring-2"
-            >
-              <option value="all">All</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="facebook">Facebook</option>
-            </select>
-          </label>
+        <div className="glass-card flex flex-col gap-4 p-4">
+          <InboxPlatformFilters
+            platform={platformFilter}
+            threadType={threadTypeFilter}
+            onPlatformChange={(v) => {
+              setPlatformFilter(v);
+              setSelectedId(null);
+              if (v === "whatsapp") setThreadTypeFilter("all");
+            }}
+            onThreadTypeChange={(v) => {
+              setThreadTypeFilter(v);
+              setSelectedId(null);
+            }}
+          />
           <input
             type="search"
             placeholder="Search customer or message…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="min-w-0 flex-1 rounded-xl border border-slate-200/80 bg-white/90 px-4 py-2.5 text-sm outline-none ring-electric/20 focus:ring-2"
+            className="w-full rounded-xl border border-slate-200/80 bg-white/90 px-4 py-2.5 text-sm outline-none ring-electric/20 focus:ring-2"
           />
         </div>
 
@@ -286,9 +307,9 @@ export default function InboxPage() {
                   </div>
                   <div>
                     <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ring-1 ${statusBadgeClass(c.status)}`}
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide ring-1 ${statusBadgeClass(c.status, c.is_human_takeover)}`}
                     >
-                      {statusLabel(c.status)}
+                      {statusLabel(c.status, c.is_human_takeover)}
                     </span>
                   </div>
                   <div className="text-sm font-medium text-slate-700 md:text-right">{c.is_human_takeover ? "On" : "Off"}</div>
@@ -327,7 +348,13 @@ export default function InboxPage() {
 
           {selectedId && (
             <>
-              <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 lg:rounded-t-2xl lg:bg-gradient-to-r lg:from-electric/10 lg:to-[#0866FF]/10">
+              <div
+                className={`flex items-center justify-between border-b border-slate-200/80 px-4 py-3 lg:rounded-t-2xl ${
+                  detail.data?.platform === "facebook"
+                    ? "bg-gradient-to-r from-fb/10 to-electric-soft/40"
+                    : "bg-gradient-to-r from-wa/10 to-electric/10"
+                }`}
+              >
                 <button
                   type="button"
                   className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
@@ -342,7 +369,9 @@ export default function InboxPage() {
                   </p>
                   <p className="text-xs text-slate-500">
                     {detail.data?.platform === "facebook" ? "Facebook" : "WhatsApp"} ·{" "}
-                    {detail.data ? statusLabel(detail.data.status) : "…"}
+                    {detail.data
+                      ? statusLabel(detail.data.status, detail.data.is_human_takeover)
+                      : "…"}
                   </p>
                 </div>
               </div>
@@ -356,26 +385,30 @@ export default function InboxPage() {
                       <Skeleton className="ml-auto h-16 w-[70%] rounded-2xl" />
                     </div>
                   )}
-                  {detail.data?.messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}
-                    >
+                  {detail.data?.platform === "facebook" && !detail.isLoading && (
+                    <FacebookThreadPanel detail={detail.data} messages={detail.data.messages} />
+                  )}
+                  {detail.data?.platform === "whatsapp" &&
+                    detail.data.messages.map((m) => (
                       <div
-                        className={`max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${
-                          m.direction === "outbound"
-                            ? "rounded-tr-sm bg-gradient-to-br from-wa-muted to-white text-slate-900 ring-1 ring-wa/25"
-                            : "rounded-tl-sm bg-white text-slate-800 ring-1 ring-slate-200/80"
-                        }`}
+                        key={m.id}
+                        className={`mb-3 flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}
                       >
-                        <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                        <p className="mt-1 text-[10px] text-slate-500">
-                          {m.direction === "outbound" ? (m.ai_generated ? "AI" : "You") : "Customer"} ·{" "}
-                          {new Date(m.created_at).toLocaleString()}
-                        </p>
+                        <div
+                          className={`max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${
+                            m.direction === "outbound"
+                              ? "rounded-tr-sm bg-gradient-to-br from-wa-muted to-white text-slate-900 ring-1 ring-wa/25"
+                              : "rounded-tl-sm bg-white text-slate-800 ring-1 ring-slate-200/80"
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                          <p className="mt-1 text-[10px] text-slate-500">
+                            {m.direction === "outbound" ? (m.ai_generated ? "AI" : "You") : "Customer"} ·{" "}
+                            {new Date(m.created_at).toLocaleString()}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
 
                 <div className="border-t border-slate-200/80 bg-slate-50/80 p-4">

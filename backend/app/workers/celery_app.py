@@ -20,6 +20,10 @@ celery.conf.beat_schedule = {
         "task": "app.workers.beat_schedule.whatsapp_poll_tick",
         "schedule": crontab(minute="*"),
     },
+    "facebook-token-refresh-daily": {
+        "task": "app.workers.beat_schedule.refresh_facebook_tokens",
+        "schedule": crontab(hour=3, minute=0),
+    },
 }
 
 celery.conf.timezone = "UTC"

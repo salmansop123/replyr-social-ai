@@ -10,26 +10,23 @@ Multi-tenant SaaS for AI-powered replies on Facebook, Instagram, WhatsApp, and T
 
 ## Local development
 
-1. Copy environment files:
+**Recommended (API + UI on your machine):** see **[docs/PHASE1.md](docs/PHASE1.md)**.
 
-   ```bash
-   cp backend/.env.example backend/.env
-   cp frontend/.env.example frontend/.env.local
-   ```
+```bash
+./start.sh
+# or: bash scripts/start.sh
+```
 
-   Fill in secrets (Clerk, Stripe, OpenRouter, Meta, etc.) as you integrate each feature.
+That one script starts Postgres (Docker), runs migrations, Celery, API, and Next.js. Press **Ctrl+C** to stop all of them.
 
-2. Start infrastructure and API:
+Optional: `bash scripts/phase1-verify.sh` to health-check.
 
-   ```bash
-   docker compose up --build
-   ```
+Without Clerk keys, use **Continue to dashboard** on sign-in (dev auth + `POST /auth/dev-bootstrap`).
 
-3. In another terminal, run the frontend:
+### Docker Compose (all services in containers)
 
-   ```bash
-   cd frontend && npm install && npm run dev
-   ```
+1. Copy `backend/.env.example` → `backend/.env` (use `postgres` / `redis` hostnames).
+2. `docker compose up --build`
 
 - API: http://localhost:8000  
 - API health: http://localhost:8000/health  

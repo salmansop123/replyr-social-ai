@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 export type PlatformSummaryRow = {
   platform: string;
   comments_received: number;
+  dms_received?: number;
   ai_replies_sent: number;
   leads_captured: number;
   connected: boolean;
@@ -20,13 +21,18 @@ type Props = {
 };
 
 const WA = "#25D366";
+const FB = "#1877F2";
 
 export function PlatformCard({ platform, summary, isLoading }: Props) {
   const isWa = platform === "whatsapp";
-  const inbound = summary?.comments_received ?? 0;
+  const comments = summary?.comments_received ?? 0;
+  const dms = summary?.dms_received ?? (isWa ? comments : 0);
+  const inbound = isWa ? comments : comments + dms;
   const aiOut = summary?.ai_replies_sent ?? 0;
   const leads = summary?.leads_captured ?? 0;
   const connected = summary?.connected ?? false;
+
+  const gridClass = isWa ? "sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4";
 
   return (
     <div
@@ -55,8 +61,11 @@ export function PlatformCard({ platform, summary, isLoading }: Props) {
                 <WhatsAppGlyph className="h-6 w-6" />
               </span>
             ) : (
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white shadow-md ring-2 ring-[#0866FF]/25">
-                <FacebookGlyph className="h-7 w-7" />
+              <span
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-md"
+                style={{ backgroundColor: FB }}
+              >
+                <FacebookGlyph className="h-6 w-6" />
               </span>
             )}
             <div>
@@ -74,17 +83,33 @@ export function PlatformCard({ platform, summary, isLoading }: Props) {
         </div>
 
         {isLoading ? (
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className={cn("grid gap-3", gridClass)}>
             <Skeleton className="h-20 rounded-xl" />
             <Skeleton className="h-20 rounded-xl" />
             <Skeleton className="h-20 rounded-xl" />
+            {!isWa && <Skeleton className="h-20 rounded-xl" />}
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-slate-200/60 bg-gradient-to-br from-white to-slate-50/90 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Messages received</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{inbound}</p>
-            </div>
+          <div className={cn("grid gap-3", gridClass)}>
+            {isWa ? (
+              <div className="rounded-xl border border-slate-200/60 bg-gradient-to-br from-white to-slate-50/90 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Messages received</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{inbound}</p>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-xl border border-fb/20 bg-gradient-to-br from-electric-soft/40 to-white p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Comments</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{comments}</p>
+                </div>
+                <div className="rounded-xl border border-fb/20 bg-gradient-to-br from-white to-blue-50/80 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">DMs</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums" style={{ color: FB }}>
+                    {dms}
+                  </p>
+                </div>
+              </>
+            )}
             <div
               className={cn(
                 "rounded-xl border p-3",
@@ -94,16 +119,31 @@ export function PlatformCard({ platform, summary, isLoading }: Props) {
               )}
             >
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">AI replies sent</p>
-              <p
-                className="mt-1 text-2xl font-bold tabular-nums"
-                style={isWa ? { color: WA } : { color: "#0866FF" }}
-              >
+              <p className="mt-1 text-2xl font-bold tabular-nums" style={isWa ? { color: WA } : { color: FB }}>
                 {aiOut}
               </p>
             </div>
-            <div className="rounded-xl border border-teal-brand/15 bg-gradient-to-br from-teal-muted/40 to-white p-3">
+            <div
+              className={cn(
+                "rounded-xl border p-3",
+                !isWa && leads > 0
+                  ? "border-fb/30 bg-gradient-to-br from-fb/10 via-white to-electric-soft/30 ring-1 ring-fb/20"
+                  : "border-teal-brand/15 bg-gradient-to-br from-teal-muted/40 to-white",
+              )}
+            >
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Leads captured</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{leads}</p>
+              <div className="mt-1 flex items-end justify-between gap-2">
+                <p className="text-2xl font-bold tabular-nums text-slate-900">{leads}</p>
+                {!isWa && leads > 0 && (
+                  <span
+                    className="mb-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-md"
+                    style={{ background: `linear-gradient(135deg, ${FB}, #0d65d9)` }}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-white/90" aria-hidden />
+                    FB leads
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -13,7 +13,7 @@ export type AuthTokenContextValue = {
 const AuthTokenContext = createContext<AuthTokenContextValue | null>(null);
 
 const offlineValue: AuthTokenContextValue = {
-  getToken: async () => null,
+  getToken: async () => "dev-local",
   isClerkActive: false,
 };
 
