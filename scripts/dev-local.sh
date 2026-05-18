@@ -43,7 +43,7 @@ free_listen_port() {
   if command -v lsof >/dev/null 2>&1; then
     pids="$(lsof -ti:"${port}" -sTCP:LISTEN 2>/dev/null || true)"
   fi
-  if [[ -n "${pids}" ]]; then
+  if [[ -n "${pids:-}" ]]; then
     echo "Stopping listener(s) on port ${port} (${pids}) so dev servers can start with a clean .next…"
     for pid in ${pids}; do
       kill "${pid}" 2>/dev/null || true
@@ -65,6 +65,7 @@ free_listen_port() {
 
 free_listen_port 3000
 free_listen_port 8000
+sleep 2
 
 cd "${ROOT}/backend"
 # shellcheck source=/dev/null
@@ -76,14 +77,15 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
 cd "${ROOT}/frontend"
-# Do not delete .next on every start — that races with a still-running Next process and causes 404 on
-# /_next/static/* and broken webpack-runtime. Ports are freed above; incremental .next is kept.
-# For a one-time nuclear reset: REPLYR_FRESH_NEXT=1 bash scripts/dev-local.sh
-if [[ "${REPLYR_FRESH_NEXT:-}" == "1" ]] && [[ -d .next ]]; then
-  echo "REPLYR_FRESH_NEXT=1: removing frontend/.next…"
+# After port 3000 is freed, clear .next by default so dev never serves stale chunk refs
+# (GET / 500, "Cannot find module './682.js'", "missing required error components", console check/setTimeout loop).
+# Skip with REPLYR_KEEP_NEXT=1 when you know no other Next ran and want a faster restart.
+if [[ "${REPLYR_KEEP_NEXT:-}" != "1" ]] && [[ -d .next ]]; then
+  echo "Clearing frontend/.next (fresh Next dev output)…"
   rm -rf .next
 fi
-echo "Starting UI at http://127.0.0.1:3000"
+sleep 1
+echo "Starting UI at http://127.0.0.1:3000 — wait until you see 'Ready' before opening the browser."
 npm run dev &
 FRONTEND_PID=$!
 
@@ -91,8 +93,11 @@ echo ""
 echo "Backend PID: ${BACKEND_PID}"
 echo "Frontend PID: ${FRONTEND_PID}"
 echo "Press Ctrl+C to stop both."
-echo "Tip: do not run a second 'npm run dev' in frontend/ while this script runs — it corrupts .next."
-echo "If styles/chunks 404: stop all dev servers, then REPLYR_FRESH_NEXT=1 bash scripts/dev-local.sh (or: cd frontend && npm run dev:clean)."
+echo "Tip: only one process on port 3000. If you see 500 / 'missing required error components': stop dev, then"
+echo "     cd frontend && rm -rf .next && cd .. && bash scripts/dev-local.sh"
+echo "Faster restarts (keep .next): REPLYR_KEEP_NEXT=1 bash scripts/dev-local.sh"
+echo "Webpack dev: cd frontend && npm run dev:webpack"
+echo "Manual clean: cd frontend && npm run dev:clean"
 echo ""
 
 wait

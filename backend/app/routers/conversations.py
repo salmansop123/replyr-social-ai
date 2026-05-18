@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,25 @@ from app.models.user import User
 from app.schemas import ConversationDetailOut, ConversationOut, ManualMessageIn, MessageOut, TakeoverUpdate
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+
+
+class BulkDeleteConversationsOut(BaseModel):
+    deleted_conversations: int
+
+
+@router.delete("/all", response_model=BulkDeleteConversationsOut)
+def delete_all_org_conversations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> BulkDeleteConversationsOut:
+    org_id = current_user.organization_id
+    n = (
+        db.query(Conversation)
+        .filter(Conversation.organization_id == org_id)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return BulkDeleteConversationsOut(deleted_conversations=int(n))
 
 
 def _escape_like(value: str) -> str:
@@ -44,6 +64,7 @@ def _to_conversation_out(c: Conversation, preview: str | None) -> ConversationOu
         id=c.id,
         platform=c.platform,
         customer_name=c.customer_name,
+        customer_platform_id=c.customer_platform_id,
         status=c.status,
         sentiment=c.sentiment,
         is_human_takeover=c.is_human_takeover,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { WhatsAppGlyph } from "@/components/brand/WhatsAppGlyph";
+import { AppLogo } from "@/components/brand/AppLogo";
 
 const nav = [
   { href: "/#features", label: "Product" },
@@ -18,8 +18,8 @@ export function MarketingHeader() {
     <header className="sticky top-0 z-50 border-b border-white/40 bg-white/70 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <Link href="/" className="group flex items-center gap-2.5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-wa to-wa-dark text-white shadow-glow-wa transition-transform duration-300 group-hover:scale-105">
-            <WhatsAppGlyph className="h-5 w-5" />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-md ring-1 ring-slate-900/10 transition-transform duration-300 group-hover:scale-105">
+            <AppLogo className="h-10 w-10" />
           </span>
           <span className="text-lg font-bold tracking-tight text-slate-900">
             Replyr<span className="bg-gradient-to-r from-electric to-accent-violet bg-clip-text text-transparent"> AI</span>

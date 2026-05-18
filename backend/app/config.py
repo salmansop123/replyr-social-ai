@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     meta_app_id: str = ""
     meta_app_secret: str = ""
     meta_verify_token: str = ""
+    webhook_base_url: str = ""
+    # WhatsApp Business Cloud API (Graph): long-lived / system user access token
+    meta_whatsapp_access_token: str = ""
+    # WABA phone number ID (digits) — used in POST .../v18.0/{PHONE_NUMBER_ID}/messages
+    meta_whatsapp_phone_number_id: str = ""
 
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""

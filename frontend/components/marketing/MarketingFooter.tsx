@@ -1,17 +1,17 @@
 import Link from "next/link";
-import { WhatsAppGlyph } from "@/components/brand/WhatsAppGlyph";
+import { AppLogo } from "@/components/brand/AppLogo";
 
 export function MarketingFooter() {
   return (
     <footer className="border-t border-slate-200/80 bg-white/60 py-14 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-8 px-4 sm:flex-row sm:px-6">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-wa text-white shadow-glow-wa">
-            <WhatsAppGlyph className="h-5 w-5" />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-md ring-1 ring-slate-900/10">
+            <AppLogo className="h-10 w-10" />
           </span>
           <div>
             <p className="font-semibold text-slate-900">Replyr AI</p>
-            <p className="text-sm text-slate-500">WhatsApp automation for modern teams</p>
+            <p className="text-sm text-slate-500">WhatsApp & Facebook — AI messaging for teams</p>
           </div>
         </div>
         <div className="flex flex-wrap justify-center gap-6 text-sm text-slate-600">

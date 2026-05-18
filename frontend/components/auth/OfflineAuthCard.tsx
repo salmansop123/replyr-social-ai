@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { WhatsAppGlyph } from "@/components/brand/WhatsAppGlyph";
+import { AppLogo } from "@/components/brand/AppLogo";
 
 type Variant = "sign-in" | "sign-up";
 
@@ -7,8 +7,8 @@ export function OfflineAuthCard({ variant }: { variant: Variant }) {
   const isSignUp = variant === "sign-up";
   return (
     <div className="text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-electric/15 to-accent-violet/15 text-electric ring-1 ring-electric/20">
-        <WhatsAppGlyph className="h-7 w-7 text-wa-dark" />
+      <div className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl shadow-md ring-1 ring-slate-200/80">
+        <AppLogo className="h-14 w-14" />
       </div>
       <h2 className="mt-6 text-xl font-bold text-slate-900">{isSignUp ? "Create a workspace" : "Welcome back"}</h2>
       <p className="mt-3 text-sm leading-relaxed text-slate-600">

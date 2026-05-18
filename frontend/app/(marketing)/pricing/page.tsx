@@ -1,44 +1,32 @@
 import Link from "next/link";
-import { MarketingFooter } from "@/components/marketing/MarketingFooter";
-import { MarketingHeader } from "@/components/marketing/MarketingHeader";
+import { BILLING_PLANS } from "@/lib/plans";
 
-const plans = [
-  {
-    name: "Starter",
-    price: "$29",
-    replies: "500 AI replies / month",
-    extra: "1 WhatsApp Business number",
-  },
-  {
-    name: "Professional",
-    price: "$79",
-    replies: "5,000 AI replies / month",
-    extra: "Up to 3 WhatsApp numbers",
-    popular: true,
-  },
-  {
-    name: "Enterprise",
-    price: "$199",
-    replies: "Unlimited AI replies",
-    extra: "Unlimited WhatsApp numbers & priority support",
-  },
-];
+const plans = BILLING_PLANS.filter((p) => p.id !== "free").map((p) => ({
+  name: p.name,
+  price: p.price,
+  replies: p.highlights[0] ?? "",
+  extra: p.highlights[1] ?? "",
+  popular: p.popular,
+}));
 
 export default function PricingPage() {
   return (
-    <div className="mesh-page noise-overlay min-h-screen text-slate-900">
-      <MarketingHeader />
-      <main className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+    <div className="pt-24">
+      <main className="mx-auto max-w-6xl px-4 pb-20 sm:px-6 sm:pb-24">
         <p className="text-sm font-semibold uppercase tracking-wider text-electric">Pricing</p>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">Simple plans for WhatsApp scale</h1>
-        <p className="mt-4 max-w-2xl text-lg text-slate-600">Every tier is WhatsApp-first — upgrade when your volume grows.</p>
+        <h1 className="font-heading mt-2 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+          Simple plans for multi-channel scale
+        </h1>
+        <p className="mt-4 max-w-2xl text-lg text-slate-600">
+          Every tier includes WhatsApp Business and Facebook Pages — upgrade when your volume grows.
+        </p>
 
         <div className="mt-14 grid gap-8 lg:grid-cols-3">
           {plans.map((p) => (
             <div
               key={p.name}
-              className={`glass-card relative flex flex-col p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift ${
-                p.popular ? "ring-2 ring-electric/30 shadow-glow" : ""
+              className={`relative flex flex-col rounded-2xl border bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-premium ${
+                p.popular ? "border-electric/30 ring-2 ring-electric/20" : "border-slate-200/80"
               }`}
             >
               {p.popular && (
@@ -55,14 +43,16 @@ export default function PricingPage() {
                   {p.replies}
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-violet" />
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-fb" />
                   {p.extra}
                 </li>
               </ul>
               <Link
                 href="/sign-up"
                 className={`mt-10 block rounded-xl py-3 text-center text-sm font-semibold transition-all ${
-                  p.popular ? "btn-primary" : "btn-secondary"
+                  p.popular
+                    ? "bg-gradient-to-r from-electric to-accent-cyan text-white shadow-md hover:scale-[1.02] hover:shadow-premium"
+                    : "border border-slate-200/90 bg-white text-slate-800 hover:border-electric/35"
                 }`}
               >
                 Choose {p.name}
@@ -70,8 +60,13 @@ export default function PricingPage() {
             </div>
           ))}
         </div>
+
+        <p className="mt-12 text-center text-sm text-slate-500">
+          <Link href="/#pricing" className="text-electric hover:underline">
+            View marketing overview →
+          </Link>
+        </p>
       </main>
-      <MarketingFooter />
     </div>
   );
 }

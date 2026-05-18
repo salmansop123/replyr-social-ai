@@ -7,8 +7,8 @@ from app.models.social_account import SocialAccount
 from app.workers.ai_tasks import process_and_reply
 
 
-def process_meta_event(payload: dict) -> None:
-    """Handle Meta webhook payload: DMs and comments."""
+def process_meta_webhook(payload: dict) -> None:
+    """Handle Meta webhook payload: DMs and comments (WhatsApp / Facebook via Graph)."""
     db = SessionLocal()
     try:
         for entry in payload.get("entry", []):
@@ -33,8 +33,18 @@ def process_meta_event(payload: dict) -> None:
 
 
 def _handle_dm(db, social_account, messaging: dict) -> None:
+    msg_obj = messaging.get("message") or {}
+    mid = msg_obj.get("mid")
+    if mid:
+        dup = db.query(Message).filter(Message.platform_message_id == str(mid)).first()
+        if dup:
+            return
     sender_id = messaging.get("sender", {}).get("id")
-    text = messaging.get("message", {}).get("text", "")
+    raw_text = msg_obj.get("text", "")
+    if isinstance(raw_text, dict):
+        text = (raw_text.get("body") or "").strip()
+    else:
+        text = str(raw_text or "").strip()
     if not sender_id or not text:
         return
     convo = (
@@ -56,7 +66,12 @@ def _handle_dm(db, social_account, messaging: dict) -> None:
         )
         db.add(convo)
         db.flush()
-    msg = Message(conversation_id=convo.id, direction="inbound", content=text)
+    msg = Message(
+        conversation_id=convo.id,
+        direction="inbound",
+        content=text,
+        platform_message_id=str(mid) if mid else None,
+    )
     db.add(msg)
     db.commit()
     process_and_reply.delay(str(convo.id))

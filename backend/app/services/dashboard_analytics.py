@@ -14,8 +14,8 @@ from app.models.lead import Lead
 from app.models.message import Message
 from app.models.social_account import SocialAccount
 
-# Product focus: WhatsApp-only for now (expand PLATFORMS when adding more channels).
-PLATFORMS = ("whatsapp",)
+# Dashboard summary cards: one row per connected channel type.
+PLATFORMS = ("whatsapp", "facebook")
 
 
 def month_start_utc(now: datetime | None = None) -> datetime:

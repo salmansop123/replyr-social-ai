@@ -1,14 +1,23 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Phone } from "lucide-react";
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 import { useApi } from "@/lib/api";
-import { WhatsAppGlyph } from "@/components/brand/WhatsAppGlyph";
+import { useQueryErrorToast } from "@/lib/use-query-error-toast";
+import { AppLogo } from "@/components/brand/AppLogo";
+import { ChannelBadges } from "@/components/brand/ChannelBadges";
+import { FacebookGlyph } from "@/components/brand/FacebookGlyph";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const WA_GREEN = "#25D366";
 
 type ConversationRow = {
   id: string;
   platform: string;
   customer_name: string | null;
+  customer_platform_id?: string | null;
   status: string;
   sentiment: string | null;
   is_human_takeover: boolean;
@@ -27,17 +36,89 @@ type MessageRow = {
 
 type ConversationDetail = ConversationRow & { messages: MessageRow[] };
 
-function statusStyle(status: string) {
-  switch (status) {
+function formatWaPhoneDisplay(raw: string | null | undefined): string {
+  if (!raw?.trim()) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return raw.trim();
+  if (digits.length >= 10) return `+${digits}`;
+  return digits;
+}
+
+function threadDisplayName(c: ConversationRow): string {
+  const name = c.customer_name?.trim();
+  if (name) return name;
+  if (c.platform === "whatsapp") {
+    const ph = formatWaPhoneDisplay(c.customer_platform_id ?? undefined);
+    if (ph) return ph;
+  }
+  return "Customer";
+}
+
+function statusBadgeClass(status: string) {
+  switch (status.toLowerCase()) {
     case "pending":
-      return "bg-amber-50 text-amber-800 ring-amber-200/80";
+      return "bg-amber-50 text-amber-900 ring-amber-200/90";
     case "answered":
-      return "bg-emerald-50 text-emerald-800 ring-emerald-200/80";
+      return "bg-emerald-50 text-emerald-900 ring-emerald-200/90";
     case "ignored":
-      return "bg-slate-100 text-slate-600 ring-slate-200/80";
+      return "bg-slate-100 text-slate-600 ring-slate-200/90";
     default:
       return "bg-violet-50 text-violet-800 ring-violet-200/80";
   }
+}
+
+function statusLabel(status: string) {
+  const s = status.toLowerCase();
+  if (s === "pending") return "Pending";
+  if (s === "answered") return "Answered";
+  if (s === "ignored") return "Ignored";
+  return status.replace(/_/g, " ");
+}
+
+function ListPlatformIcon({ platform }: { platform: string }) {
+  if (platform === "facebook") {
+    return (
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-[#0866FF]/25">
+        <FacebookGlyph className="h-4 w-4" />
+      </span>
+    );
+  }
+  if (platform === "whatsapp") {
+    return (
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ring-1 ring-black/10"
+        style={{ backgroundColor: WA_GREEN }}
+      >
+        <Phone className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+      </span>
+    );
+  }
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-slate-600">
+      <span className="text-[10px] font-bold">?</span>
+    </span>
+  );
+}
+
+function ConversationListSkeleton() {
+  return (
+    <div className="space-y-0 divide-y divide-slate-200/70 rounded-2xl border border-white/60 bg-white/70">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex gap-4 px-4 py-4 md:grid md:grid-cols-[1fr_140px_100px] md:items-center">
+          <div className="flex gap-3">
+            <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-full max-w-md" />
+              <Skeleton className="h-3 w-28" />
+            </div>
+          </div>
+          <Skeleton className="h-6 w-20 rounded-full" />
+          <Skeleton className="hidden h-4 w-8 justify-self-end md:block" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function InboxPage() {
@@ -45,13 +126,18 @@ export default function InboxPage() {
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [platformFilter, setPlatformFilter] = useState<"all" | "whatsapp" | "facebook">("all");
   const [draftReply, setDraftReply] = useState("");
 
   const list = useQuery({
-    queryKey: ["conversations", "whatsapp", search],
+    queryKey: ["conversations", platformFilter, search],
     queryFn: async () => {
       const res = await api.get<ConversationRow[]>("/conversations", {
-        params: { platform: "whatsapp", limit: 80, ...(search.trim() ? { q: search.trim() } : {}) },
+        params: {
+          limit: 80,
+          ...(platformFilter !== "all" ? { platform: platformFilter } : {}),
+          ...(search.trim() ? { q: search.trim() } : {}),
+        },
       });
       return res.data;
     },
@@ -66,6 +152,9 @@ export default function InboxPage() {
     enabled: !!selectedId,
   });
 
+  useQueryErrorToast(list.isError, "Unable to load conversations.");
+  useQueryErrorToast(detail.isError, "Unable to load conversation detail.");
+
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: ["conversations"] });
     if (selectedId) qc.invalidateQueries({ queryKey: ["conversation", selectedId] });
@@ -77,6 +166,7 @@ export default function InboxPage() {
       await api.patch(`/conversations/${selectedId}/takeover`, { is_human_takeover: next });
     },
     onSuccess: invalidate,
+    onError: () => toast.error("Takeover update failed."),
   });
 
   const ignoreMut = useMutation({
@@ -87,6 +177,7 @@ export default function InboxPage() {
       invalidate();
       setSelectedId(null);
     },
+    onError: () => toast.error("Could not ignore conversation."),
   });
 
   const reopenMut = useMutation({
@@ -94,6 +185,7 @@ export default function InboxPage() {
       await api.post(`/conversations/${selectedId}/reopen`);
     },
     onSuccess: invalidate,
+    onError: () => toast.error("Could not reopen conversation."),
   });
 
   const sendMut = useMutation({
@@ -103,7 +195,9 @@ export default function InboxPage() {
     onSuccess: () => {
       setDraftReply("");
       invalidate();
+      toast.success("Message sent.");
     },
+    onError: () => toast.error("Send failed."),
   });
 
   return (
@@ -111,13 +205,14 @@ export default function InboxPage() {
       <div className="min-w-0 flex-1 space-y-6">
         <div className="glass-card flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-wa/15 text-wa-dark ring-1 ring-wa/25">
-              <WhatsAppGlyph className="h-6 w-6" />
+            <div className="flex h-12 shrink-0 items-center justify-center rounded-2xl bg-white px-2 ring-1 ring-slate-200/80">
+              <ChannelBadges />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">WhatsApp inbox</h2>
+              <h2 className="text-lg font-bold text-slate-900">Inbox</h2>
               <p className="mt-1 text-sm text-slate-600">
-                Select a thread to view messages, toggle human takeover, and send a manual reply.
+                WhatsApp & Facebook threads filter by channel, then select a thread for takeover, ignore, reopen, or
+                manual reply.
               </p>
             </div>
           </div>
@@ -126,71 +221,89 @@ export default function InboxPage() {
           </span>
         </div>
 
-        <div className="glass-card p-4">
+        <div className="glass-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+          <label className="flex shrink-0 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Platform
+            <select
+              value={platformFilter}
+              onChange={(e) => {
+                setPlatformFilter(e.target.value as "all" | "whatsapp" | "facebook");
+                setSelectedId(null);
+              }}
+              className="min-w-[160px] rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm outline-none ring-electric/20 focus:ring-2"
+            >
+              <option value="all">All</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="facebook">Facebook</option>
+            </select>
+          </label>
           <input
             type="search"
             placeholder="Search customer or message…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-200/80 bg-white/90 px-4 py-2.5 text-sm outline-none ring-electric/20 focus:ring-2"
+            className="min-w-0 flex-1 rounded-xl border border-slate-200/80 bg-white/90 px-4 py-2.5 text-sm outline-none ring-electric/20 focus:ring-2"
           />
         </div>
 
-        {list.isLoading && <div className="h-40 animate-pulse rounded-2xl bg-white/50" />}
-        {list.error && (
+        {list.isLoading && <ConversationListSkeleton />}
+        {list.error && !list.isLoading && (
           <div className="rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-4 text-sm text-red-900">
-            Unable to load conversations. If you just signed in, wait a second and refresh — or check that the API is
+            Unable to load conversations. If you just signed in, wait a moment and refresh — or confirm the API is
             running.
           </div>
         )}
 
-        <div className="overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-card backdrop-blur">
-          <div className="hidden grid-cols-[1fr_140px_100px] gap-4 border-b border-slate-200/80 bg-slate-50/80 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:grid">
-            <span>Thread</span>
-            <span>Status</span>
-            <span className="text-right">Takeover</span>
-          </div>
-          <div className="divide-y divide-slate-200/70">
-            {(list.data ?? []).map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  setSelectedId(c.id);
-                  setDraftReply("");
-                }}
-                className={`flex w-full flex-col gap-2 px-4 py-4 text-left transition-colors md:grid md:grid-cols-[1fr_140px_100px] md:items-center ${
-                  selectedId === c.id ? "bg-electric/5 ring-1 ring-inset ring-electric/15" : "hover:bg-slate-50/80"
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-wa/10 text-wa-dark">
-                      <WhatsAppGlyph className="h-4 w-4" />
-                    </span>
-                    <span className="truncate font-semibold text-slate-900">{c.customer_name || "Customer"}</span>
+        {!list.isLoading && !list.error && (
+          <div className="overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-card backdrop-blur">
+            <div className="hidden grid-cols-[1fr_140px_100px] gap-4 border-b border-slate-200/80 bg-slate-50/80 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:grid">
+              <span>Thread</span>
+              <span>Status</span>
+              <span className="text-right">Takeover</span>
+            </div>
+            <div className="divide-y divide-slate-200/70">
+              {(list.data ?? []).map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(c.id);
+                    setDraftReply("");
+                  }}
+                  className={`flex w-full flex-col gap-2 px-4 py-4 text-left transition-colors md:grid md:grid-cols-[1fr_140px_100px] md:items-center ${
+                    selectedId === c.id ? "bg-electric/5 ring-1 ring-inset ring-electric/15" : "hover:bg-slate-50/80"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <ListPlatformIcon platform={c.platform} />
+                      <span className="truncate font-semibold text-slate-900">{threadDisplayName(c)}</span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 pl-10 text-sm text-slate-600">
+                      {c.last_message_preview || <span className="text-slate-400">No messages</span>}
+                    </p>
+                    <p className="pl-10 text-xs text-slate-400">{new Date(c.updated_at).toLocaleString()}</p>
                   </div>
-                  <p className="mt-1 line-clamp-2 pl-10 text-sm text-slate-600">
-                    {c.last_message_preview || <span className="text-slate-400">No messages</span>}
-                  </p>
-                  <p className="pl-10 text-xs text-slate-400">{new Date(c.updated_at).toLocaleString()}</p>
+                  <div>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ring-1 ${statusBadgeClass(c.status)}`}
+                    >
+                      {statusLabel(c.status)}
+                    </span>
+                  </div>
+                  <div className="text-sm font-medium text-slate-700 md:text-right">{c.is_human_takeover ? "On" : "Off"}</div>
+                </button>
+              ))}
+              {(list.data?.length ?? 0) === 0 && (
+                <div className="px-6 py-16 text-center text-sm text-slate-500">
+                  No threads yet for this filter. Connect WhatsApp under Channels or switch to All.
                 </div>
-                <div>
-                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${statusStyle(c.status)}`}>
-                    {c.status}
-                  </span>
-                </div>
-                <div className="text-sm font-medium text-slate-700 md:text-right">{c.is_human_takeover ? "On" : "Off"}</div>
-              </button>
-            ))}
-            {!list.isLoading && (list.data?.length ?? 0) === 0 && (
-              <div className="px-6 py-16 text-center text-sm text-slate-500">No WhatsApp threads yet.</div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Detail panel */}
       <div
         className={`fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-opacity lg:static lg:z-0 lg:w-[min(100%,420px)] lg:shrink-0 lg:bg-transparent lg:backdrop-blur-0 ${
           selectedId ? "opacity-100" : "pointer-events-none opacity-0 lg:pointer-events-auto lg:opacity-100"
@@ -206,7 +319,7 @@ export default function InboxPage() {
         >
           {!selectedId && (
             <div className="hidden flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-slate-500 lg:flex">
-              <WhatsAppGlyph className="h-10 w-10 text-wa/40" />
+              <AppLogo className="h-12 w-12 opacity-50" />
               <p className="text-sm font-medium">Select a conversation</p>
               <p className="max-w-xs text-xs">Thread detail, takeover, and replies appear here.</p>
             </div>
@@ -214,7 +327,7 @@ export default function InboxPage() {
 
           {selectedId && (
             <>
-              <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 lg:rounded-t-2xl lg:bg-gradient-to-r lg:from-wa/10 lg:to-electric/5">
+              <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 lg:rounded-t-2xl lg:bg-gradient-to-r lg:from-electric/10 lg:to-[#0866FF]/10">
                 <button
                   type="button"
                   className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
@@ -224,14 +337,25 @@ export default function InboxPage() {
                   ←
                 </button>
                 <div className="min-w-0 flex-1 pl-2">
-                  <p className="truncate font-bold text-slate-900">{detail.data?.customer_name || "Customer"}</p>
-                  <p className="text-xs text-slate-500">WhatsApp · {detail.data?.status}</p>
+                  <p className="truncate font-bold text-slate-900">
+                    {detail.data ? threadDisplayName(detail.data) : <Skeleton className="h-5 w-32" />}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {detail.data?.platform === "facebook" ? "Facebook" : "WhatsApp"} ·{" "}
+                    {detail.data ? statusLabel(detail.data.status) : "…"}
+                  </p>
                 </div>
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="min-h-[200px] flex-1 space-y-3 overflow-y-auto p-4">
-                  {detail.isLoading && <div className="h-32 animate-pulse rounded-xl bg-slate-100" />}
+                  {detail.isLoading && (
+                    <div className="space-y-3">
+                      <Skeleton className="ml-auto h-16 w-[85%] rounded-2xl" />
+                      <Skeleton className="h-16 w-[85%] rounded-2xl" />
+                      <Skeleton className="ml-auto h-16 w-[70%] rounded-2xl" />
+                    </div>
+                  )}
                   {detail.data?.messages.map((m) => (
                     <div
                       key={m.id}

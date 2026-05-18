@@ -15,7 +15,7 @@ def create_app() -> FastAPI:
     if sentry_sdk and settings.sentry_dsn:
         sentry_sdk.init(dsn=settings.sentry_dsn, traces_sample_rate=0.1)
 
-    app = FastAPI(title="Replyr AI — WhatsApp", version="0.1.0")
+    app = FastAPI(title="Replyr AI — WhatsApp & Facebook", version="0.1.0")
 
     app.add_middleware(
         CORSMiddleware,
@@ -24,6 +24,18 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Register before /health and /api so Meta can verify /webhooks/meta reliably.
+    app.include_router(meta_webhook.router, prefix="/webhooks")
+
+    @app.get("/")
+    def root() -> dict:
+        return {
+            "service": "replyr-ai-api",
+            "health": "/health",
+            "docs": "/docs",
+            "api": "/api/v1",
+        }
 
     @app.get("/health")
     def health() -> dict:
@@ -37,7 +49,6 @@ def create_app() -> FastAPI:
     app.include_router(social.router, prefix=api)
     app.include_router(billing.router, prefix=api)
     app.include_router(contact.router, prefix=api)
-    app.include_router(meta_webhook.router, prefix=api)
 
     return app
 

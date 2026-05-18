@@ -38,12 +38,12 @@ export function AnalyticsActivityChart({ points }: { points: TsPoint[] }) {
                   title={`Inbound: ${p.inbound}`}
                 />
                 <div
-                  className="w-full bg-gradient-to-t from-accent-cyan/90 to-accent-cyan opacity-90 transition-all group-hover:opacity-100"
+                  className="w-full bg-gradient-to-t from-teal-brand to-accent-cyan opacity-90 transition-all group-hover:opacity-100"
                   style={{ height: `${Math.max(2, hOut)}%` }}
                   title={`Outbound: ${p.outbound}`}
                 />
                 <div
-                  className="w-full rounded-b-sm bg-gradient-to-t from-accent-violet to-violet-600 opacity-90 transition-all group-hover:opacity-100"
+                  className="w-full rounded-b-sm bg-gradient-to-t from-fb/90 to-electric-bright opacity-90 transition-all group-hover:opacity-100"
                   style={{ height: `${Math.max(2, hLead)}%` }}
                   title={`Leads: ${p.leads}`}
                 />

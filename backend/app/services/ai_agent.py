@@ -24,13 +24,31 @@ import httpx
 
 from app.config import settings
 
-_LANG_LABELS = {"en": "English", "es": "Spanish", "fr": "French", "de": "German", "ar": "Arabic"}
+_LANG_LABELS = {
+    "en": "English",
+    "ar": "Arabic",
+    "ur": "Urdu",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "tr": "Turkish",
+    "hi": "Hindi",
+    "bn": "Bengali",
+    "id": "Indonesian",
+    "pt": "Portuguese",
+    "ru": "Russian",
+    "ja": "Japanese",
+    "zh": "Chinese (Simplified)",
+}
 
 
 def _language_label(code: str | None) -> str:
     if not code:
         return "English"
-    return _LANG_LABELS.get(code.lower(), code)
+    c = code.lower().strip()
+    if c == "auto":
+        return "the same language as the customer (match their last message)"
+    return _LANG_LABELS.get(c, code)
 
 
 class AIAgentService:
@@ -75,3 +93,100 @@ class AIAgentService:
             resp.raise_for_status()
             data = resp.json()
             return data["choices"][0]["message"]["content"].strip()
+
+    async def _complete_short(self, user_prompt: str, max_tokens: int = 48) -> str:
+        """Single-turn completion for classification-style prompts."""
+        if not settings.openrouter_api_key:
+            return ""
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(
+                self.OPENROUTER_URL,
+                headers={
+                    "Authorization": f"Bearer {settings.openrouter_api_key}",
+                    "HTTP-Referer": settings.frontend_url,
+                    "X-Title": "Replyr AI",
+                },
+                json={
+                    "model": settings.openrouter_default_model,
+                    "messages": [{"role": "user", "content": user_prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": 0.2,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data["choices"][0]["message"]["content"].strip()
+
+    async def detect_sentiment(self, text: str) -> str:
+        """Return one of: positive, neutral, negative."""
+        raw = (text or "").strip()
+        if not raw:
+            return "neutral"
+        if not settings.openrouter_api_key:
+            return _heuristic_sentiment(raw)
+        prompt = (
+            "Classify the sentiment of this customer message as exactly one word: "
+            "positive, neutral, or negative. No punctuation or explanation.\n\nMessage:\n"
+            f"{raw[:2000]}"
+        )
+        try:
+            label = (await self._complete_short(prompt, max_tokens=8)).lower()
+            for allowed in ("positive", "neutral", "negative"):
+                if allowed in label:
+                    return allowed
+        except Exception:
+            pass
+        return _heuristic_sentiment(raw)
+
+    async def detect_lead_intent(self, text: str) -> bool:
+        """Whether the message suggests purchase / signup / pricing intent."""
+        raw = (text or "").strip()
+        if not raw:
+            return False
+        if not settings.openrouter_api_key:
+            return _heuristic_lead_intent(raw)
+        prompt = (
+            "Does this message show clear sales or lead intent (pricing, demo, signup, purchase)? "
+            "Reply exactly yes or no.\n\nMessage:\n"
+            f"{raw[:2000]}"
+        )
+        try:
+            ans = (await self._complete_short(prompt, max_tokens=4)).lower()
+            return ans.startswith("y")
+        except Exception:
+            return _heuristic_lead_intent(raw)
+
+
+def _heuristic_sentiment(text: str) -> str:
+    t = text.lower()
+    negatives = ("angry", "frustrated", "terrible", "awful", "hate", "worst", "refund", "useless", "disappointed")
+    positives = ("thanks", "thank you", "great", "love", "awesome", "perfect", "excellent", "amazing")
+    neg = sum(1 for w in negatives if w in t)
+    pos = sum(1 for w in positives if w in t)
+    if neg > pos:
+        return "negative"
+    if pos > neg:
+        return "positive"
+    return "neutral"
+
+
+def _heuristic_lead_intent(text: str) -> bool:
+    t = text.lower()
+    keys = (
+        "price",
+        "pricing",
+        "cost",
+        "buy",
+        "purchase",
+        "quote",
+        "demo",
+        "trial",
+        "sign up",
+        "signup",
+        "interested in",
+        "how much",
+        "package",
+        "plan",
+        "subscribe",
+    )
+    return any(k in t for k in keys)
