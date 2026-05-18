@@ -7,7 +7,12 @@ celery = Celery(
     "replyr",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.workers.ai_tasks", "app.workers.webhook_tasks", "app.workers.beat_schedule"],
+    include=[
+        "app.workers.ai_tasks",
+        "app.workers.webhook_tasks",
+        "app.workers.knowledge_tasks",
+        "app.workers.beat_schedule",
+    ],
 )
 
 celery.conf.beat_schedule = {

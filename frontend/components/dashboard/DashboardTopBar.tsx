@@ -6,6 +6,10 @@ import { AppLogo } from "@/components/brand/AppLogo";
 
 const meta: Record<string, { title: string; subtitle: string }> = {
   comments: { title: "Inbox", subtitle: "WhatsApp and Facebook conversations across your workspace" },
+  "ai-training": {
+    title: "AI Training",
+    subtitle: "Upload business documents to improve AI reply accuracy via OpenRouter",
+  },
   accounts: { title: "Channels", subtitle: "Connect WhatsApp Business and Facebook Pages (OAuth)" },
   billing: { title: "Billing", subtitle: "Plans, usage, and subscription management" },
   settings: { title: "Settings", subtitle: "Organization profile and AI behavior" },

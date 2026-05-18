@@ -44,3 +44,6 @@ class Organization(Base):
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="organization")
     leads: Mapped[list["Lead"]] = relationship(back_populates="organization")
     subscription: Mapped["Subscription | None"] = relationship(back_populates="organization", uselist=False)
+    knowledge_sources: Mapped[list["KnowledgeSource"]] = relationship(
+        back_populates="organization", cascade="all, delete-orphan"
+    )

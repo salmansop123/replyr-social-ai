@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_default_model: str = "anthropic/claude-3-haiku"
 
+    knowledge_storage_dir: str = "data/knowledge"
+    knowledge_max_upload_mb: int = 10
+
+    @property
+    def knowledge_max_upload_bytes(self) -> int:
+        return self.knowledge_max_upload_mb * 1024 * 1024
+
     meta_app_id: str = ""
     meta_app_secret: str = ""
     meta_verify_token: str = ""

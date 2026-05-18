@@ -12,7 +12,7 @@ export function LiveDemo() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-electric">Product tour</p>
           <h2 className="font-heading mt-3 text-3xl font-bold text-slate-900 sm:text-4xl">See Replyr in action</h2>
           <p className="mx-auto mt-4 max-w-2xl text-slate-600">
-            Two minutes on how inbox routing, tone controls, and WhatsApp + Facebook coverage work together — no fluff,
+            Two minutes on how inbox routing, tone controls, and WhatsApp + Facebook coverage work together no fluff,
             just the workflow.
           </p>
         </ScrollReveal>
@@ -35,7 +35,7 @@ export function LiveDemo() {
             </div>
           </button>
           <p className="mt-4 text-xs text-slate-500">
-            Placeholder preview — hook your Loom or YouTube embed here when ready.
+            Placeholder preview hook your Loom or YouTube embed here when ready.
           </p>
         </ScrollReveal>
       </div>

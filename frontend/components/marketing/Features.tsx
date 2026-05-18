@@ -8,7 +8,7 @@ const cards = [
   {
     icon: Bot,
     title: "Sounds Human",
-    body: "AI replies in 1–3 short sentences that match your brand voice. No canned scripts — every thread feels like your best teammate wrote it.",
+    body: "AI replies in 1–3 short sentences that match your brand voice. No canned scripts every thread feels like your best teammate wrote it.",
   },
   {
     icon: Globe,
@@ -18,7 +18,7 @@ const cards = [
   {
     icon: Zap,
     title: "Instant",
-    body: "Responds in under 60 seconds on average. Your customers get answers while they’re still ready to buy — not hours later.",
+    body: "Responds in under 60 seconds on average. Your customers get answers while they’re still ready to buy not hours later.",
   },
   {
     icon: Clock,
@@ -33,7 +33,7 @@ const cards = [
   {
     icon: BarChart3,
     title: "Analytics",
-    body: "See replies, leads, and trends live in one dashboard. Know what’s converting and where customers stall — without spreadsheets.",
+    body: "See replies, leads, and trends live in one dashboard. Know what’s converting and where customers stall without spreadsheets.",
   },
 ];
 
@@ -78,7 +78,7 @@ export function Features() {
             </h3>
             <p className="mt-4 leading-relaxed text-slate-600">
               Unlike generic chatbots, Replyr AI learns your specific products, prices, promotions, and communication style.
-              It knows that your Lavender soap is $12, ships free over $50, and is best for sensitive skin — because you
+              It knows that your Lavender soap is $12, ships free over $50, and is best for sensitive skin because you
               told it so. Every reply is uniquely yours.
             </p>
           </ScrollReveal>
@@ -101,7 +101,7 @@ export function Features() {
               <div className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-white p-4 shadow-inner">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Human takeover</p>
-                  <p className="text-xs text-slate-500">AI paused — you’re in control</p>
+                  <p className="text-xs text-slate-500">AI paused you’re in control</p>
                 </div>
                 <div className="marketing-toggle relative h-8 w-14 rounded-full p-1" aria-hidden>
                   <span className="marketing-toggle-knob absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow" />
@@ -119,7 +119,7 @@ export function Features() {
           </ScrollReveal>
           <ScrollReveal delayMs={60} className="order-1 lg:order-2">
             <h3 className="font-heading text-2xl font-bold text-slate-900 sm:text-3xl">
-              Human takeover — always in control
+              Human takeover always in control
             </h3>
             <p className="mt-4 leading-relaxed text-slate-600">
               See a conversation that needs a personal touch? One click pauses the AI and lets you type directly. The AI

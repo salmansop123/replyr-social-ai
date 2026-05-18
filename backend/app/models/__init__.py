@@ -1,4 +1,5 @@
 from app.database import Base
+from app.models.knowledge_source import KnowledgeSource
 from app.models.conversation import Conversation
 from app.models.lead import Lead
 from app.models.message import Message
@@ -9,6 +10,7 @@ from app.models.user import User
 
 __all__ = [
     "Base",
+    "KnowledgeSource",
     "Organization",
     "User",
     "SocialAccount",

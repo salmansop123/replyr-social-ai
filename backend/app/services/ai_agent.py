@@ -3,6 +3,8 @@ SYSTEM_PROMPT_TEMPLATE = """You are a customer support representative for {busin
 About this business:
 {ai_system_prompt}
 
+{business_knowledge}
+
 The customer is messaging you on WhatsApp about this topic/context:
 {post_context}
 
@@ -17,12 +19,12 @@ Your communication rules:
 - If the customer is angry, be empathetic and offer to help
 - If you genuinely cannot answer, say you will follow up personally
 - Do NOT use generic phrases like 'Great question!' or 'Certainly!'
-- Match the customer's energy: if they are casual, be casual"""
+- Match the customer's energy: if they are casual, be casual
+- Use uploaded business knowledge when relevant; do not invent facts not in the knowledge base"""
 
-
-import httpx
 
 from app.config import settings
+from app.services.openrouter_client import OpenRouterClient
 
 _LANG_LABELS = {
     "en": "English",
@@ -52,7 +54,10 @@ def _language_label(code: str | None) -> str:
 
 
 class AIAgentService:
-    OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+    """Customer-facing AI via OpenRouter — all inference goes through OpenRouterClient."""
+
+    def __init__(self, client: OpenRouterClient | None = None) -> None:
+        self._llm = client or OpenRouterClient()
 
     async def generate_reply(
         self,
@@ -60,10 +65,16 @@ class AIAgentService:
         conversation_history: list[dict],
         customer_message: str,
         post_context: str = "",
+        business_knowledge: str = "",
     ) -> str:
+        knowledge_block = ""
+        if business_knowledge and business_knowledge.strip():
+            knowledge_block = business_knowledge.strip()
+
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             business_name=organization.name,
             ai_system_prompt=organization.ai_system_prompt or "",
+            business_knowledge=knowledge_block,
             post_context=post_context or "general inquiry",
             language=_language_label(organization.ai_language),
             tone=organization.ai_tone or "friendly",
@@ -72,57 +83,35 @@ class AIAgentService:
         messages.extend(conversation_history[-10:])
         messages.append({"role": "user", "content": customer_message})
 
-        if not settings.openrouter_api_key:
+        if not self._llm.is_configured:
             return "Thanks for reaching out! We'll get back to you shortly."
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
-                self.OPENROUTER_URL,
-                headers={
-                    "Authorization": f"Bearer {settings.openrouter_api_key}",
-                    "HTTP-Referer": settings.frontend_url,
-                    "X-Title": "Replyr AI",
-                },
-                json={
-                    "model": settings.openrouter_default_model,
-                    "messages": messages,
-                    "max_tokens": 150,
-                    "temperature": 0.7,
-                },
+        try:
+            return await self._llm.chat_completion(
+                messages,
+                max_tokens=150,
+                temperature=0.7,
             )
-            resp.raise_for_status()
-            data = resp.json()
-            return data["choices"][0]["message"]["content"].strip()
+        except Exception:
+            return "Thanks for reaching out! We'll get back to you shortly."
 
     async def _complete_short(self, user_prompt: str, max_tokens: int = 48) -> str:
-        """Single-turn completion for classification-style prompts."""
-        if not settings.openrouter_api_key:
+        if not self._llm.is_configured:
             return ""
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(
-                self.OPENROUTER_URL,
-                headers={
-                    "Authorization": f"Bearer {settings.openrouter_api_key}",
-                    "HTTP-Referer": settings.frontend_url,
-                    "X-Title": "Replyr AI",
-                },
-                json={
-                    "model": settings.openrouter_default_model,
-                    "messages": [{"role": "user", "content": user_prompt}],
-                    "max_tokens": max_tokens,
-                    "temperature": 0.2,
-                },
+        try:
+            return await self._llm.chat_completion(
+                [{"role": "user", "content": user_prompt}],
+                max_tokens=max_tokens,
+                temperature=0.2,
             )
-            resp.raise_for_status()
-            data = resp.json()
-            return data["choices"][0]["message"]["content"].strip()
+        except Exception:
+            return ""
 
     async def detect_sentiment(self, text: str) -> str:
-        """Return one of: positive, neutral, negative."""
         raw = (text or "").strip()
         if not raw:
             return "neutral"
-        if not settings.openrouter_api_key:
+        if not self._llm.is_configured:
             return _heuristic_sentiment(raw)
         prompt = (
             "Classify the sentiment of this customer message as exactly one word: "
@@ -139,11 +128,10 @@ class AIAgentService:
         return _heuristic_sentiment(raw)
 
     async def detect_lead_intent(self, text: str) -> bool:
-        """Whether the message suggests purchase / signup / pricing intent."""
         raw = (text or "").strip()
         if not raw:
             return False
-        if not settings.openrouter_api_key:
+        if not self._llm.is_configured:
             return _heuristic_lead_intent(raw)
         prompt = (
             "Does this message show clear sales or lead intent (pricing, demo, signup, purchase)? "

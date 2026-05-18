@@ -18,6 +18,7 @@ from app.models.conversation import Conversation
 from app.models.lead import Lead
 from app.models.message import Message
 from app.services.ai_agent import AIAgentService
+from app.services.knowledge_service import get_knowledge_context
 from app.services.reply_service import post_reply
 from app.workers.celery_app import celery
 
@@ -175,12 +176,15 @@ def process_and_reply(self, conversation_id: str) -> None:
 
         is_lead = asyncio.run(agent.detect_lead_intent(latest_inbound))
 
+        knowledge_ctx = get_knowledge_context(db, convo.organization_id)
+
         reply_text = asyncio.run(
             agent.generate_reply(
                 organization=convo.organization,
                 conversation_history=history[:-1],
                 customer_message=latest_inbound,
                 post_context=convo.post_context or "",
+                business_knowledge=knowledge_ctx,
             )
         )
 

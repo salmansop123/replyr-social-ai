@@ -4,6 +4,9 @@ frontend/.env
 frontend/.env.local
 *.pem
 
+# Uploaded AI training documents
+backend/data/knowledge/
+
 # Python
 __pycache__/
 *.py[cod]

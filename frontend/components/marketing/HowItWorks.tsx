@@ -77,7 +77,7 @@ export function HowItWorks() {
               <p className="mt-4 text-xs font-bold uppercase tracking-widest text-electric">Step 1</p>
               <h3 className="font-heading mt-2 text-xl font-bold text-slate-900">Connect WhatsApp & Facebook</h3>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                Link your WhatsApp Business account and Facebook Page in one click. No technical knowledge needed — we
+                Link your WhatsApp Business account and Facebook Page in one click. No technical knowledge needed we
                 guide you through every step.
               </p>
               <div className="mt-6 rounded-xl border border-dashed border-slate-200/90 bg-slate-50/80 p-4">
@@ -110,7 +110,7 @@ export function HowItWorks() {
               </p>
               <div className="mt-6 overflow-hidden rounded-xl border border-slate-200/80 bg-white p-3 shadow-inner">
                 <p className="marketing-kb-line text-xs leading-relaxed text-slate-600">
-                  Lavender soap — $12, gentle for dry skin. Charcoal Detox — $14, best for oily skin. Free shipping over
+                  Lavender soap $12, gentle for dry skin. Charcoal Detox $14, best for oily skin. Free shipping over
                   $50. Use HELLO10 for 10% off first order…
                 </p>
               </div>
@@ -125,7 +125,7 @@ export function HowItWorks() {
               <p className="mt-4 text-xs font-bold uppercase tracking-widest text-electric">Step 3</p>
               <h3 className="font-heading mt-2 text-xl font-bold text-slate-900">AI handles everything automatically</h3>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                From this moment on, every WhatsApp message and Facebook comment gets a real, human-sounding reply — even
+                From this moment on, every WhatsApp message and Facebook comment gets a real, human-sounding reply even
                 while you sleep.
               </p>
               <div className="mt-6 flex justify-center scale-[0.92]">

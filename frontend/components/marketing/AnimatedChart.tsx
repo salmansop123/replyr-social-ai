@@ -57,7 +57,7 @@ export function AnimatedChart() {
             <h3 className="font-heading text-2xl font-bold text-slate-900 sm:text-3xl">From 0 replies to 100% coverage</h3>
             <p className="mt-4 text-lg leading-relaxed text-slate-600">
               Most businesses miss 70% of customer messages on social media. Replyr AI ensures every single comment and DM
-              gets a reply — increasing conversions by an average of 34%.
+              gets a reply increasing conversions by an average of 34%.
             </p>
             <ul className="mt-8 space-y-4 text-slate-600">
               <li className="flex gap-3">

@@ -157,6 +157,26 @@ class SocialAccountListItemOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class KnowledgeSourceOut(BaseModel):
+    id: UUID
+    filename: str
+    file_type: str
+    status: str
+    error_message: str | None
+    file_size_bytes: int
+    char_count: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class KnowledgeSourceListOut(BaseModel):
+    items: list[KnowledgeSourceOut]
+    ready_count: int
+    total_count: int
+
+
 class SocialAccountCreatedOut(BaseModel):
     """After manual connect — token never returned."""
 

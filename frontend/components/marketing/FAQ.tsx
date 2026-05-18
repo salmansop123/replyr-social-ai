@@ -6,7 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 const faqs: { q: string; a: string }[] = [
   {
     q: "Will customers know they're talking to an AI?",
-    a: "No. Replyr AI is specifically trained to write short, natural, conversational replies — the same way a real employee would. Replies are 1–3 sentences, match your brand tone, and never use robotic phrases.",
+    a: "No. Replyr AI is specifically trained to write short, natural, conversational replies the same way a real employee would. Replies are 1–3 sentences, match your brand tone, and never use robotic phrases.",
   },
   {
     q: "What happens if the AI doesn't know the answer?",

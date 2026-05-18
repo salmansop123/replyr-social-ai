@@ -4,7 +4,7 @@ import { GradientAtmosphere } from "@/components/brand/GradientAtmosphere";
 import { DashboardTopBar } from "@/components/dashboard/DashboardTopBar";
 import { SessionBootstrap } from "@/components/dashboard/SessionBootstrap";
 import { Sidebar } from "@/components/dashboard/Sidebar";
-import { isClerkConfigured } from "@/lib/clerk-config";
+import { useAuthToken } from "@/components/auth/AuthAndClerkProvider";
 
 /**
  * Single client boundary for the whole dashboard chrome so `usePathname` /
@@ -12,6 +12,8 @@ import { isClerkConfigured } from "@/lib/clerk-config";
  * Avoids intermittent "Cannot read properties of null (reading 'useContext')" in dev (esp. Turbopack).
  */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
+  const { isClerkActive } = useAuthToken();
+
   return (
     <div className="flex min-h-screen bg-[var(--background)]">
       <Sidebar />
@@ -21,7 +23,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <div className="pointer-events-none absolute inset-0 noise-overlay opacity-50" />
         <div className="relative flex min-h-screen flex-1 flex-col">
           <DashboardTopBar />
-          {isClerkConfigured() ? <SessionBootstrap /> : null}
+          {isClerkActive ? <SessionBootstrap /> : null}
           <div className="flex-1 p-4 sm:p-8">{children}</div>
         </div>
       </div>

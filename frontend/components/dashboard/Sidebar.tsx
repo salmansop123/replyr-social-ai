@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { useAuthToken } from "@/components/auth/AuthAndClerkProvider";
 import { AppLogo } from "@/components/brand/AppLogo";
+import { DashboardLogoutButton } from "@/components/dashboard/DashboardLogoutButton";
 
 const links = [
   { href: "/dashboard", label: "Overview", match: (p: string) => p === "/dashboard" },
   { href: "/dashboard/comments", label: "Inbox", match: (p: string) => p.startsWith("/dashboard/comments") },
   { href: "/dashboard/accounts", label: "Channels", match: (p: string) => p.startsWith("/dashboard/accounts") },
   { href: "/dashboard/billing", label: "Billing", match: (p: string) => p.startsWith("/dashboard/billing") },
+  { href: "/dashboard/ai-training", label: "AI Training", match: (p: string) => p.startsWith("/dashboard/ai-training") },
   { href: "/dashboard/settings", label: "Settings", match: (p: string) => p.startsWith("/dashboard/settings") },
 ];
 
@@ -35,7 +37,7 @@ export function Sidebar() {
             </p>
           </div>
         </Link>
-        <p className="mt-3 text-xs leading-relaxed text-slate-500">WhatsApp & Facebook — one premium control plane.</p>
+        <p className="mt-3 text-xs leading-relaxed text-slate-500">WhatsApp & Facebook one premium control plane.</p>
       </div>
 
       <nav className="relative flex flex-1 flex-col gap-1 p-3">
@@ -62,8 +64,8 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="relative border-t border-slate-200/80 p-4">
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-white/80 p-2 shadow-sm backdrop-blur-sm">
+      <div className="relative space-y-2 border-t border-slate-200/80 p-4">
+        {/* <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-white/80 p-2 shadow-sm backdrop-blur-sm">
           {isClerkActive ? (
             <>
               <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: "h-9 w-9 ring-2 ring-slate-100" } }} />
@@ -77,10 +79,11 @@ export function Sidebar() {
               >
                 Home
               </Link>
-              <span className="text-xs text-slate-500">Local preview</span>
+              <span className="text-xs text-slate-500">Local</span>
             </>
           )}
-        </div>
+        </div> */}
+        <DashboardLogoutButton />
       </div>
     </aside>
   );

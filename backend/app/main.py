@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import analytics, auth, billing, contact, conversations, organizations, social
+from app.routers import analytics, auth, billing, contact, conversations, knowledge, organizations, social
 from app.routers.webhooks import meta as meta_webhook
 
 try:
@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(social.router, prefix=api)
     app.include_router(billing.router, prefix=api)
     app.include_router(contact.router, prefix=api)
+    app.include_router(knowledge.router, prefix=api)
 
     return app
 

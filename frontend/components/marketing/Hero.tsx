@@ -74,7 +74,7 @@ export function Hero() {
           </h1>
 
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600 sm:text-xl">
-            Replyr AI reads your posts, understands your products, and replies to every customer comment and message — in
+            Replyr AI reads your posts, understands your products, and replies to every customer comment and message in
             your tone, in their language, 24 hours a day. No bots. No robotic replies. Just real conversations that
             convert.
           </p>
@@ -84,7 +84,7 @@ export function Hero() {
               href="/sign-up"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-brand px-6 py-3.5 text-base font-semibold text-white shadow-md transition hover:scale-[1.02] hover:shadow-glow-accent"
             >
-              Start Free — No Card Needed
+              Start Free No Card Needed
               <ArrowRight className="h-5 w-5" />
             </Link>
             <button
@@ -115,7 +115,7 @@ export function Hero() {
             <span aria-hidden>⚡</span> Replied in 47 seconds
           </div>
           <HeroPhoneMock className="lg:max-w-[300px] lg:translate-x-0" />
-          <p className="mt-4 text-center text-xs text-slate-500 lg:text-right">Real AI reply — not a template</p>
+          <p className="mt-4 text-center text-xs text-slate-500 lg:text-right">Real AI reply not a template</p>
         </div>
       </div>
     </section>
