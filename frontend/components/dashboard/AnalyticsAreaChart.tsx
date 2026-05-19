@@ -2,12 +2,39 @@
 
 export type TsPoint = { date: string; inbound: number; outbound: number; leads: number };
 
-function maxVal(points: TsPoint[]) {
-  let m = 1;
-  for (const p of points) {
-    m = Math.max(m, p.inbound + p.outbound + p.leads);
+const CHART_BAR_HEIGHT_PX = 200;
+
+/** Stack segment heights that sum to at most CHART_BAR_HEIGHT_PX. */
+function stackHeights(
+  inbound: number,
+  fbInbound: number,
+  outbound: number,
+  leads: number,
+  showFb: boolean,
+): { hIn: number; hFb: number; hOut: number; hLead: number } {
+  const rawIn = Math.max(0, inbound);
+  const rawFb = showFb ? Math.max(0, fbInbound) : 0;
+  const rawOut = Math.max(0, outbound);
+  const rawLead = Math.max(0, leads);
+  const total = rawIn + rawFb + rawOut + rawLead;
+  if (total <= 0) {
+    return { hIn: 0, hFb: 0, hOut: 0, hLead: 0 };
   }
-  return m;
+  const scale = Math.min(1, CHART_BAR_HEIGHT_PX / total);
+  const minSeg = 4;
+  let hIn = Math.max(minSeg, Math.round(rawIn * scale));
+  let hFb = rawFb > 0 ? Math.max(minSeg, Math.round(rawFb * scale)) : 0;
+  let hOut = Math.max(minSeg, Math.round(rawOut * scale));
+  let hLead = Math.max(minSeg, Math.round(rawLead * scale));
+  const sum = hIn + hFb + hOut + hLead;
+  if (sum > CHART_BAR_HEIGHT_PX) {
+    const shrink = CHART_BAR_HEIGHT_PX / sum;
+    hIn = Math.round(hIn * shrink);
+    hFb = Math.round(hFb * shrink);
+    hOut = Math.round(hOut * shrink);
+    hLead = Math.round(hLead * shrink);
+  }
+  return { hIn, hFb, hOut, hLead };
 }
 
 type Props = {
@@ -25,7 +52,6 @@ export function AnalyticsActivityChart({ points, facebookPoints }: Props) {
     );
   }
 
-  const cap = maxVal(points.length ? points : fb);
   const last = (points.length ? points : fb).slice(-14);
   const fbByDate = new Map(fb.map((p) => [p.date, p]));
 
@@ -34,33 +60,39 @@ export function AnalyticsActivityChart({ points, facebookPoints }: Props) {
       <div className="flex h-[240px] items-end gap-1 sm:gap-1.5">
         {last.map((p) => {
           const fbPoint = fbByDate.get(p.date);
-          const hIn = (p.inbound / cap) * 100;
-          const hFb = fbPoint ? (fbPoint.inbound / cap) * 100 : 0;
-          const hOut = (p.outbound / cap) * 100;
-          const hLead = (p.leads / cap) * 100;
+          const { hIn, hFb, hOut, hLead } = stackHeights(
+            p.inbound,
+            fbPoint?.inbound ?? 0,
+            p.outbound,
+            p.leads,
+            fb.length > 0,
+          );
           return (
             <div key={p.date} className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
-              <div className="flex w-full max-w-[14px] flex-col justify-end gap-px sm:max-w-[18px]">
+              <div
+                className="flex w-full max-w-[14px] flex-col justify-end gap-px sm:max-w-[20px]"
+                style={{ height: CHART_BAR_HEIGHT_PX }}
+              >
                 <div
                   className="w-full rounded-t-sm bg-gradient-to-t from-electric to-electric-bright opacity-90 transition-all group-hover:opacity-100"
-                  style={{ height: `${Math.max(4, hIn)}%` }}
+                  style={{ height: hIn }}
                   title={`All inbound: ${p.inbound}`}
                 />
-                {fb.length > 0 && (
+                {fb.length > 0 && hFb > 0 && (
                   <div
                     className="w-full bg-gradient-to-t from-fb to-fb/70 opacity-90 transition-all group-hover:opacity-100"
-                    style={{ height: `${Math.max(2, hFb)}%` }}
+                    style={{ height: hFb }}
                     title={`Facebook inbound: ${fbPoint?.inbound ?? 0}`}
                   />
                 )}
                 <div
                   className="w-full bg-gradient-to-t from-teal-brand to-accent-cyan opacity-90 transition-all group-hover:opacity-100"
-                  style={{ height: `${Math.max(2, hOut)}%` }}
+                  style={{ height: hOut }}
                   title={`Outbound: ${p.outbound}`}
                 />
                 <div
                   className="w-full rounded-b-sm bg-gradient-to-t from-slate-400/80 to-slate-300/80 opacity-90 transition-all group-hover:opacity-100"
-                  style={{ height: `${Math.max(2, hLead)}%` }}
+                  style={{ height: hLead }}
                   title={`Leads: ${p.leads}`}
                 />
               </div>

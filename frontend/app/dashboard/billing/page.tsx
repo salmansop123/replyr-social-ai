@@ -90,12 +90,8 @@ async function fetchSubscription(api: ReturnType<typeof useApi>): Promise<{
   if (isBillingDemoMode()) {
     return { data: DEMO_SUBSCRIPTION, preview: true };
   }
-  try {
-    const res = await api.get<BillingSubscription>("/billing/subscription");
-    return { data: res.data, preview: false };
-  } catch {
-    return { data: DEMO_SUBSCRIPTION, preview: true };
-  }
+  const res = await api.get<BillingSubscription>("/billing/subscription");
+  return { data: res.data, preview: false };
 }
 
 async function fetchInvoices(
@@ -105,12 +101,8 @@ async function fetchInvoices(
   if (preview || isBillingDemoMode()) {
     return DEMO_INVOICES;
   }
-  try {
-    const res = await api.get<BillingInvoice[]>("/billing/invoices");
-    return res.data;
-  } catch {
-    return DEMO_INVOICES;
-  }
+  const res = await api.get<BillingInvoice[]>("/billing/invoices");
+  return res.data;
 }
 
 export default function BillingPage() {

@@ -14,26 +14,7 @@ const AccountsPageClient = dynamic(() => import("./AccountsPageClient"), {
   ),
 });
 
-function logAccountsPageShell() {
-  // #region agent log
-  void fetch("http://127.0.0.1:7845/ingest/e46810bd-6a09-4049-8a37-492421b89b3f", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "951a6e" },
-    body: JSON.stringify({
-      sessionId: "951a6e",
-      location: "accounts/page.tsx",
-      message: "accounts RSC shell render",
-      data: { ssrDisabled: true },
-      timestamp: Date.now(),
-      hypothesisId: "C",
-      runId: "pre-fix",
-    }),
-  }).catch(() => {});
-  // #endregion
-}
-
 export default function AccountsPage() {
-  logAccountsPageShell();
   return (
     <Suspense
       fallback={

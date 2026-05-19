@@ -21,7 +21,7 @@ export function CTA() {
           href="/sign-up"
           className="mt-10 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-brand px-8 py-4 text-base font-semibold text-white shadow-md transition hover:scale-[1.02] hover:shadow-glow-accent"
         >
-          Start Your Free Trial — No Card Needed
+          Start Your Free Trial
           <ArrowRight className="h-5 w-5" />
         </Link>
         <p className="mt-6 text-sm text-slate-500">Setup takes 5 minutes · Cancel anytime · 14-day free trial</p>

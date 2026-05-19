@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Sparkles, Zap } from "lucide-react";
 import { useApi } from "@/lib/api";
+import { isBillingDemoMode } from "@/lib/billing-demo";
 import { useSessionBootstrap } from "@/components/dashboard/SessionBootstrap";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +36,7 @@ export function UsageQuotaBanner({ className, threshold = 80 }: Props) {
       const res = await api.get<SubscriptionUsage>("/billing/subscription");
       return res.data;
     },
-    enabled: ready,
+    enabled: ready && !isBillingDemoMode(),
     staleTime: 60_000,
     retry: false,
   });

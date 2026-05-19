@@ -18,7 +18,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="relative flex w-[280px] shrink-0 flex-col border-r border-electric/10 bg-white/92 shadow-[4px_0_40px_-12px_rgba(59,130,246,0.12),4px_0_24px_-16px_rgba(37,211,102,0.08)] backdrop-blur-xl">
+    <aside className="sticky top-0 h-screen w-[280px] shrink-0 flex flex-col border-r border-electric/10 bg-white/92 shadow-[4px_0_40px_-12px_rgba(59,130,246,0.12),4px_0_24px_-16px_rgba(37,211,102,0.08)] backdrop-blur-xl">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-electric-soft/50 via-wa-muted/20 to-teal-muted/35" />
       <div className="pointer-events-none absolute -right-20 top-24 h-48 w-48 rounded-full bg-wa/12 blur-3xl" aria-hidden />
       <div className="pointer-events-none absolute -left-16 bottom-32 h-40 w-40 rounded-full bg-electric/10 blur-3xl" aria-hidden />

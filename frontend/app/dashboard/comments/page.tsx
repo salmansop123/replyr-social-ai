@@ -1,8 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Phone } from "lucide-react";
-import { useCallback, useState } from "react";
+import { Info, Phone } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useApi } from "@/lib/api";
 import { useSessionBootstrap } from "@/components/dashboard/SessionBootstrap";
@@ -12,11 +13,19 @@ import { ChannelBadges } from "@/components/brand/ChannelBadges";
 import { FacebookGlyph } from "@/components/brand/FacebookGlyph";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FacebookThreadPanel } from "@/components/dashboard/FacebookThreadPanel";
+import { UsageQuotaBanner } from "@/components/dashboard/UsageQuotaBanner";
 import {
   InboxPlatformFilters,
   type PlatformFilter,
   type ThreadTypeFilter,
 } from "@/components/dashboard/InboxPlatformFilters";
+import {
+  DEMO_INBOX_CONVERSATIONS,
+  DEMO_INBOX_DETAILS,
+  filterDemoInbox,
+  isDashboardPreviewMode,
+  previewActionToast,
+} from "@/lib/dashboard-demo";
 
 const WA_GREEN = "#25D366";
 
@@ -142,8 +151,10 @@ function ConversationListSkeleton() {
 
 export default function InboxPage() {
   const api = useApi();
+  const searchParams = useSearchParams();
   const { ready: sessionReady } = useSessionBootstrap();
   const qc = useQueryClient();
+  const previewCapable = isDashboardPreviewMode();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
@@ -164,7 +175,16 @@ export default function InboxPage() {
       return res.data;
     },
     enabled: sessionReady,
+    retry: false,
   });
+
+  const usePreview =
+    previewCapable && sessionReady && !list.isLoading && ((list.data?.length ?? 0) === 0 || !!list.isError);
+
+  const displayList = useMemo(() => {
+    if (!usePreview) return list.data ?? [];
+    return filterDemoInbox(DEMO_INBOX_CONVERSATIONS, platformFilter, threadTypeFilter, search);
+  }, [usePreview, list.data, platformFilter, threadTypeFilter, search]);
 
   const detail = useQuery({
     queryKey: ["conversation", selectedId],
@@ -172,11 +192,41 @@ export default function InboxPage() {
       const res = await api.get<ConversationDetail>(`/conversations/${selectedId}`);
       return res.data;
     },
-    enabled: !!selectedId,
+    enabled: !!selectedId && !selectedId.startsWith("demo-"),
   });
 
-  useQueryErrorToast(list.isError, "Unable to load conversations.");
-  useQueryErrorToast(detail.isError, "Unable to load conversation detail.");
+  const isDemoConversation = !!selectedId && selectedId.startsWith("demo-");
+  const activeDetail = isDemoConversation ? DEMO_INBOX_DETAILS[selectedId!] : detail.data;
+  const detailLoading = isDemoConversation ? false : detail.isLoading;
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("conversation");
+    if (fromUrl) setSelectedId(fromUrl);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!usePreview) return;
+    const fromUrl = searchParams.get("conversation");
+    if (fromUrl && DEMO_INBOX_DETAILS[fromUrl]) {
+      setSelectedId(fromUrl);
+      return;
+    }
+    if (!selectedId && DEMO_INBOX_CONVERSATIONS.length > 0) {
+      setSelectedId(DEMO_INBOX_CONVERSATIONS[0].id);
+    }
+  }, [usePreview, searchParams, selectedId]);
+
+  const blockPreviewAction = useCallback(() => {
+    if (usePreview || isDemoConversation) {
+      const t = previewActionToast();
+      toast.info(t.title, { description: t.description });
+      return true;
+    }
+    return false;
+  }, [usePreview, isDemoConversation]);
+
+  useQueryErrorToast(list.isError && !usePreview, "Unable to load conversations.");
+  useQueryErrorToast(detail.isError && !isDemoConversation, "Unable to load conversation detail.");
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: ["conversations"] });
@@ -186,6 +236,7 @@ export default function InboxPage() {
 
   const takeoverMut = useMutation({
     mutationFn: async (next: boolean) => {
+      if (blockPreviewAction()) return;
       await api.patch(`/conversations/${selectedId}/takeover`, { is_human_takeover: next });
     },
     onSuccess: invalidate,
@@ -194,6 +245,7 @@ export default function InboxPage() {
 
   const ignoreMut = useMutation({
     mutationFn: async () => {
+      if (blockPreviewAction()) return;
       await api.post(`/conversations/${selectedId}/ignore`);
     },
     onSuccess: () => {
@@ -205,6 +257,7 @@ export default function InboxPage() {
 
   const reopenMut = useMutation({
     mutationFn: async () => {
+      if (blockPreviewAction()) return;
       await api.post(`/conversations/${selectedId}/reopen`);
     },
     onSuccess: invalidate,
@@ -213,6 +266,7 @@ export default function InboxPage() {
 
   const sendMut = useMutation({
     mutationFn: async (content: string) => {
+      if (blockPreviewAction()) return;
       await api.post(`/conversations/${selectedId}/messages`, { content });
     },
     onSuccess: () => {
@@ -226,6 +280,16 @@ export default function InboxPage() {
   return (
     <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-6 lg:flex-row">
       <div className="min-w-0 flex-1 space-y-6">
+        <UsageQuotaBanner />
+        {usePreview && (
+          <div className="flex items-start gap-3 rounded-xl border border-sky-200/90 bg-sky-50/90 px-4 py-3 text-sm text-sky-950">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" aria-hidden />
+            <p>
+              <span className="font-semibold">Preview inbox.</span> Sample threads are shown until real conversations
+              arrive from connected channels.
+            </p>
+          </div>
+        )}
         <div className="glass-card flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <div className="flex h-12 shrink-0 items-center justify-center rounded-2xl bg-white px-2 ring-1 ring-slate-200/80">
@@ -240,7 +304,7 @@ export default function InboxPage() {
             </div>
           </div>
           <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200/80">
-            {list.data?.length ?? 0} threads
+            {displayList.length} threads
           </span>
         </div>
 
@@ -267,15 +331,15 @@ export default function InboxPage() {
           />
         </div>
 
-        {list.isLoading && <ConversationListSkeleton />}
-        {list.error && !list.isLoading && (
+        {list.isLoading && !usePreview && <ConversationListSkeleton />}
+        {list.error && !list.isLoading && !usePreview && (
           <div className="rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-4 text-sm text-red-900">
             Unable to load conversations. If you just signed in, wait a moment and refresh — or confirm the API is
             running.
           </div>
         )}
 
-        {!list.isLoading && !list.error && (
+        {(!list.isLoading || usePreview) && (!list.error || usePreview) && (
           <div className="overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-card backdrop-blur">
             <div className="hidden grid-cols-[1fr_140px_100px] gap-4 border-b border-slate-200/80 bg-slate-50/80 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 md:grid">
               <span>Thread</span>
@@ -283,7 +347,7 @@ export default function InboxPage() {
               <span className="text-right">Takeover</span>
             </div>
             <div className="divide-y divide-slate-200/70">
-              {(list.data ?? []).map((c) => (
+              {displayList.map((c) => (
                 <button
                   key={c.id}
                   type="button"
@@ -315,7 +379,7 @@ export default function InboxPage() {
                   <div className="text-sm font-medium text-slate-700 md:text-right">{c.is_human_takeover ? "On" : "Off"}</div>
                 </button>
               ))}
-              {(list.data?.length ?? 0) === 0 && (
+              {displayList.length === 0 && (
                 <div className="px-6 py-16 text-center text-sm text-slate-500">
                   No threads yet for this filter. Connect WhatsApp under Channels or switch to All.
                 </div>
@@ -350,7 +414,7 @@ export default function InboxPage() {
             <>
               <div
                 className={`flex items-center justify-between border-b border-slate-200/80 px-4 py-3 lg:rounded-t-2xl ${
-                  detail.data?.platform === "facebook"
+                  activeDetail?.platform === "facebook"
                     ? "bg-gradient-to-r from-fb/10 to-electric-soft/40"
                     : "bg-gradient-to-r from-wa/10 to-electric/10"
                 }`}
@@ -365,12 +429,12 @@ export default function InboxPage() {
                 </button>
                 <div className="min-w-0 flex-1 pl-2">
                   <p className="truncate font-bold text-slate-900">
-                    {detail.data ? threadDisplayName(detail.data) : <Skeleton className="h-5 w-32" />}
+                    {activeDetail ? threadDisplayName(activeDetail) : <Skeleton className="h-5 w-32" />}
                   </p>
                   <p className="text-xs text-slate-500">
-                    {detail.data?.platform === "facebook" ? "Facebook" : "WhatsApp"} ·{" "}
-                    {detail.data
-                      ? statusLabel(detail.data.status, detail.data.is_human_takeover)
+                    {activeDetail?.platform === "facebook" ? "Facebook" : "WhatsApp"} ·{" "}
+                    {activeDetail
+                      ? statusLabel(activeDetail.status, activeDetail.is_human_takeover)
                       : "…"}
                   </p>
                 </div>
@@ -378,18 +442,18 @@ export default function InboxPage() {
 
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="min-h-[200px] flex-1 space-y-3 overflow-y-auto p-4">
-                  {detail.isLoading && (
+                  {detailLoading && (
                     <div className="space-y-3">
                       <Skeleton className="ml-auto h-16 w-[85%] rounded-2xl" />
                       <Skeleton className="h-16 w-[85%] rounded-2xl" />
                       <Skeleton className="ml-auto h-16 w-[70%] rounded-2xl" />
                     </div>
                   )}
-                  {detail.data?.platform === "facebook" && !detail.isLoading && (
-                    <FacebookThreadPanel detail={detail.data} messages={detail.data.messages} />
+                  {activeDetail?.platform === "facebook" && !detailLoading && (
+                    <FacebookThreadPanel detail={activeDetail} messages={activeDetail.messages} />
                   )}
-                  {detail.data?.platform === "whatsapp" &&
-                    detail.data.messages.map((m) => (
+                  {activeDetail?.platform === "whatsapp" &&
+                    activeDetail.messages.map((m) => (
                       <div
                         key={m.id}
                         className={`mb-3 flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}
@@ -415,11 +479,11 @@ export default function InboxPage() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      disabled={takeoverMut.isPending || !detail.data}
-                      onClick={() => takeoverMut.mutate(!detail.data?.is_human_takeover)}
+                      disabled={takeoverMut.isPending || !activeDetail}
+                      onClick={() => takeoverMut.mutate(!activeDetail?.is_human_takeover)}
                       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:border-electric/40 disabled:opacity-50"
                     >
-                      {detail.data?.is_human_takeover ? "Resume AI" : "Human takeover"}
+                      {activeDetail?.is_human_takeover ? "Resume AI" : "Human takeover"}
                     </button>
                     <button
                       type="button"

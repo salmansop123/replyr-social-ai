@@ -12,7 +12,7 @@ const cards = [
   },
   {
     icon: Globe,
-    title: "Any Language",
+    title: "Multiple Language",
     body: "Auto detects the customer’s language and replies in kind. Arabic, Urdu, English, Spanish, and dozens more without flipping a switch.",
   },
   {

@@ -69,8 +69,18 @@ export function PackagesSection({
               )}
 
               <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
-              <p className="mt-3 text-3xl font-bold tabular-nums text-slate-900">{plan.price}</p>
-              <p className="text-xs font-medium text-slate-500">{plan.period}</p>
+              {plan.description ? (
+                <p className="mt-1 text-sm text-slate-600">{plan.description}</p>
+              ) : null}
+              <p className="mt-4 text-sm text-slate-500">
+                {plan.startingFrom ? (
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Starting from
+                  </span>
+                ) : null}
+                <span className="text-3xl font-bold tabular-nums text-slate-900">{plan.price}</span>
+                <span className="ml-1 text-sm font-medium text-slate-500">{plan.period}</span>
+              </p>
 
               <ul className="mt-5 flex-1 space-y-2.5 text-sm text-slate-600">
                 {plan.highlights.map((line) => (
@@ -80,17 +90,6 @@ export function PackagesSection({
                   </li>
                 ))}
               </ul>
-
-              <details className="mt-4 border-t border-slate-200/80 pt-3 text-xs text-slate-500">
-                <summary className="cursor-pointer font-semibold text-slate-600 hover:text-slate-900">
-                  All features
-                </summary>
-                <ul className="mt-2 space-y-1">
-                  {plan.features.map((f) => (
-                    <li key={f}>{f}</li>
-                  ))}
-                </ul>
-              </details>
 
               <div className="mt-6">
                 {plan.id === "enterprise" ? (

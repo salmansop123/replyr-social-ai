@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { Info } from "lucide-react";
+import { useMemo } from "react";
 import { useApi } from "@/lib/api";
 import { useSessionBootstrap } from "@/components/dashboard/SessionBootstrap";
 import { useQueryErrorToast } from "@/lib/use-query-error-toast";
@@ -9,15 +11,15 @@ import { AnalyticsActivityChart, type TsPoint } from "@/components/dashboard/Ana
 import { PlatformCard } from "@/components/dashboard/PlatformCard";
 import { FacebookGlyph } from "@/components/brand/FacebookGlyph";
 import { WhatsAppGlyph } from "@/components/brand/WhatsAppGlyph";
+import {
+  DEMO_ANALYTICS_SUMMARY,
+  analyticsHasLiveData,
+  buildDemoTimeseries,
+  isDashboardPreviewMode,
+  type DemoLatestInbound,
+} from "@/lib/dashboard-demo";
 
-type LatestInbound = {
-  conversation_id: string;
-  platform: string;
-  customer_name: string | null;
-  message_preview: string;
-  status: string;
-  created_at: string;
-};
+type LatestInbound = DemoLatestInbound;
 
 type Summary = {
   platforms: {
@@ -58,6 +60,8 @@ function RowPlatformIcon({ platform }: { platform: string }) {
 export default function DashboardHome() {
   const api = useApi();
   const { ready: sessionReady } = useSessionBootstrap();
+  const previewCapable = isDashboardPreviewMode();
+
   const summary = useQuery({
     queryKey: ["analytics", "summary"],
     queryFn: async () => {
@@ -65,6 +69,7 @@ export default function DashboardHome() {
       return res.data;
     },
     enabled: sessionReady,
+    retry: false,
   });
   const series = useQuery({
     queryKey: ["analytics", "timeseries", 30],
@@ -76,31 +81,59 @@ export default function DashboardHome() {
       return res.data;
     },
     enabled: sessionReady,
+    retry: false,
   });
 
-  useQueryErrorToast(summary.isError, "Could not load analytics. Check the API and your session.");
-  useQueryErrorToast(series.isError, "Could not load activity chart.");
+  const usePreview = previewCapable && !analyticsHasLiveData(summary.data);
+  const displaySummary = usePreview ? DEMO_ANALYTICS_SUMMARY : summary.data;
 
-  const platforms = summary.data?.platforms ?? [];
+  const chartData = useMemo(() => {
+    const apiPoints = series.data?.points ?? [];
+    const apiHasActivity = apiPoints.some((p) => p.inbound + p.outbound + p.leads > 0);
+    if (!usePreview && apiPoints.length > 0 && apiHasActivity) {
+      const fb = series.data?.by_platform?.facebook ?? [];
+      return { points: apiPoints, facebookPoints: fb };
+    }
+    return buildDemoTimeseries(30);
+  }, [usePreview, series.data]);
+
+  useQueryErrorToast(summary.isError && !usePreview, "Could not load analytics. Check the API and your session.");
+  useQueryErrorToast(series.isError && !usePreview, "Could not load activity chart.");
+
+  const platforms = displaySummary?.platforms ?? [];
   const wa = platforms.find((p) => p.platform === "whatsapp");
   const fb = platforms.find((p) => p.platform === "facebook");
   const totals = platforms.reduce(
     (acc, p) => ({
-      inbound: acc.inbound + p.comments_received,
+      inbound: acc.inbound + p.comments_received + (p.dms_received ?? 0),
       ai: acc.ai + p.ai_replies_sent,
       leads: acc.leads + p.leads_captured,
     }),
     { inbound: 0, ai: 0, leads: 0 },
   );
 
+  const latestInbound = displaySummary?.latest_inbound ?? [];
+  const showChartSkeleton = series.isLoading && !usePreview && !previewCapable;
+
   return (
     <div className="space-y-8">
+      {usePreview && (
+        <div className="flex items-start gap-3 rounded-xl border border-sky-200/90 bg-sky-50/90 px-4 py-3 text-sm text-sky-950">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" aria-hidden />
+          <p>
+            <span className="font-semibold">Preview data.</span> Sample metrics and messages are shown until WhatsApp
+            or Facebook is connected. Set <code className="rounded bg-white/80 px-1 text-xs">NEXT_PUBLIC_DASHBOARD_DEMO=false</code>{" "}
+            to hide previews when the API returns empty data.
+          </p>
+        </div>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2">
-        <PlatformCard platform="whatsapp" summary={wa} isLoading={summary.isLoading} />
-        <PlatformCard platform="facebook" summary={fb} isLoading={summary.isLoading} />
+        <PlatformCard platform="whatsapp" summary={wa} isLoading={summary.isLoading && !usePreview} />
+        <PlatformCard platform="facebook" summary={fb} isLoading={summary.isLoading && !usePreview} />
       </div>
 
-      {summary.error && (
+      {summary.error && !usePreview && (
         <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-4 text-sm text-amber-950 shadow-sm backdrop-blur">
           Could not load analytics. Ensure the API is running and your session is synced with the backend.
         </div>
@@ -108,7 +141,7 @@ export default function DashboardHome() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="glass-card-glow group relative overflow-hidden p-6 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glow-accent lg:col-span-2">
-          <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-gradient-to-br from-electric/18 via-teal-brand/12 to-wa-muted/40 blur-3xl transition-opacity group-hover:opacity-90" />
+          <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-gradient-to-br from-electric/18 via-teal-brand/12 to-wa-muted/40 blur-3xl transition-opacity group-hover:opacity-90" aria-hidden />
           <div className="relative flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">This month</p>
@@ -207,12 +240,12 @@ export default function DashboardHome() {
           </div>
         </div>
         <div className="mt-6">
-          {series.isLoading ? (
+          {showChartSkeleton ? (
             <div className="h-[300px] animate-pulse rounded-2xl bg-slate-100/80" />
           ) : (
             <AnalyticsActivityChart
-              points={series.data?.points ?? []}
-              facebookPoints={series.data?.by_platform?.facebook}
+              points={chartData.points}
+              facebookPoints={chartData.facebookPoints}
             />
           )}
         </div>
@@ -229,14 +262,15 @@ export default function DashboardHome() {
           </Link>
         </div>
         <div className="mt-6 space-y-3">
-          {(summary.data?.latest_inbound ?? []).length === 0 && !summary.isLoading && (
+          {latestInbound.length === 0 && !summary.isLoading && !usePreview && (
             <p className="rounded-2xl border border-dashed border-slate-200/80 bg-white/50 px-4 py-8 text-center text-sm text-slate-500">
               No inbound messages yet. When WhatsApp or Facebook is connected, previews will appear here.
             </p>
           )}
-          {(summary.data?.latest_inbound ?? []).map((row) => (
-            <div
+          {latestInbound.map((row) => (
+            <Link
               key={`${row.conversation_id}-${row.created_at}`}
+              href={`/dashboard/comments?conversation=${row.conversation_id}`}
               className="group flex gap-4 rounded-2xl border border-slate-200/70 bg-gradient-to-r from-white via-white to-teal-muted/20 p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-brand/25 hover:shadow-md"
             >
               <RowPlatformIcon platform={row.platform} />
@@ -261,7 +295,7 @@ export default function DashboardHome() {
                   {row.message_preview}
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

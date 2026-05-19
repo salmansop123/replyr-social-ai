@@ -29,6 +29,10 @@ See **[docs/PHASE2.md](docs/PHASE2.md)** — Meta webhook, Channels connect, `ba
 
 See **[docs/PHASE3.md](docs/PHASE3.md)** — OAuth, Page webhooks, `python3 scripts/test_facebook_flow.py`, `bash scripts/phase3-verify.sh`.
 
+### Stripe billing (Phase 4)
+
+See **[docs/PHASE4.md](docs/PHASE4.md)** — Products/prices, webhook at `/api/v1/billing/webhook`, `NEXT_PUBLIC_BILLING_DEMO=false`, `bash scripts/phase4-verify.sh`.
+
 Without Clerk keys, use **Continue to dashboard** on sign-in (dev auth + `POST /auth/dev-bootstrap`).
 
 ### Docker Compose (all services in containers)

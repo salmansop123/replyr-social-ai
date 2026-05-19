@@ -400,7 +400,16 @@ export default function SettingsPage() {
   const [dangerOpen, setDangerOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
+  const [selectedDisconnectAccountId, setSelectedDisconnectAccountId] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState("");
+
+  type SocialAccountOption = {
+    id: string;
+    platform: string;
+    display_name: string | null;
+    platform_user_id: string;
+    is_active: boolean;
+  };
 
   const profileFlash = useSavedFlash();
   const personalityFlash = useSavedFlash();
@@ -435,6 +444,15 @@ export default function SettingsPage() {
       return res.data.length;
     },
     enabled: !!orgQuery.data && !settingsPreviewOnly,
+  });
+
+  const socialAccountsQuery = useQuery({
+    queryKey: ["social", "accounts"],
+    queryFn: async () => {
+      const res = await api.get<SocialAccountOption[]>("/social/accounts");
+      return res.data.filter((a) => a.is_active);
+    },
+    enabled: sessionReady && !settingsPreviewOnly,
   });
 
   const profileForm = useForm<ProfileValues>({
@@ -569,18 +587,28 @@ export default function SettingsPage() {
     onError: () => toast.error("Could not clear conversations"),
   });
 
-  const disconnectAll = useMutation({
-    mutationFn: async () => {
-      const res = await api.delete<{ disconnected: number }>("/social/accounts/all");
-      return res.data;
+  const disconnectAccount = useMutation({
+    mutationFn: async (accountId: string) => {
+      await api.delete(`/social/accounts/${accountId}`);
     },
-    onSuccess: (d) => {
-      toast.success(`Disconnected ${d.disconnected} account(s)`);
+    onSuccess: () => {
+      toast.success("Channel disconnected.");
       qc.invalidateQueries({ queryKey: ["social"] });
       setDisconnectDialogOpen(false);
+      setSelectedDisconnectAccountId("");
     },
-    onError: () => toast.error("Could not disconnect accounts"),
+    onError: () => toast.error("Could not disconnect account"),
   });
+
+  const selectedDisconnectAccount = socialAccountsQuery.data?.find(
+    (a) => a.id === selectedDisconnectAccountId,
+  );
+
+  const formatAccountLabel = (a: SocialAccountOption) => {
+    const platform = a.platform === "whatsapp" ? "WhatsApp" : a.platform === "facebook" ? "Facebook" : a.platform;
+    const name = a.display_name?.trim() || a.platform_user_id;
+    return `${platform} — ${name}`;
+  };
 
   const watchedTone = personalityForm.watch("ai_tone");
   const bhEnabled = hoursForm.watch("business_hours_enabled");
@@ -1178,17 +1206,50 @@ export default function SettingsPage() {
             >
               Clear Conversation History
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="border-amber-300 text-amber-950"
-              onClick={() => {
-                if (blockIfSettingsPreview()) return;
-                setDisconnectDialogOpen(true);
-              }}
-            >
-              Disconnect All Social Accounts
-            </Button>
+            <div className="space-y-3 rounded-xl border border-amber-200/80 bg-amber-50/40 p-4">
+              <div>
+                <Label htmlFor="disconnect-account-select" className="text-sm font-semibold text-slate-800">
+                  Disconnect a connected channel
+                </Label>
+                <p className="mt-1 text-xs text-slate-600">
+                  Choose WhatsApp or Facebook, then disconnect. AI replies for that channel stop immediately.
+                </p>
+              </div>
+              {socialAccountsQuery.isLoading ? (
+                <p className="text-sm text-slate-500">Loading connected accounts…</p>
+              ) : (socialAccountsQuery.data?.length ?? 0) === 0 ? (
+                <p className="text-sm text-slate-500">No connected accounts.</p>
+              ) : (
+                <Select
+                  value={selectedDisconnectAccountId}
+                  onValueChange={setSelectedDisconnectAccountId}
+                >
+                  <SelectTrigger id="disconnect-account-select" className="bg-white">
+                    <SelectValue placeholder="Select an account…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {socialAccountsQuery.data?.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {formatAccountLabel(a)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                className="border-amber-300 text-amber-950"
+                disabled={!selectedDisconnectAccountId}
+                onClick={() => {
+                  if (blockIfSettingsPreview()) return;
+                  if (!selectedDisconnectAccountId) return;
+                  setDisconnectDialogOpen(true);
+                }}
+              >
+                Disconnect
+              </Button>
+            </div>
           </CardContent>
         )}
       </Card>
@@ -1223,12 +1284,17 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={disconnectDialogOpen} onOpenChange={setDisconnectDialogOpen}>
+      <Dialog
+        open={disconnectDialogOpen}
+        onOpenChange={setDisconnectDialogOpen}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Disconnect all accounts?</DialogTitle>
+            <DialogTitle>Disconnect this channel?</DialogTitle>
             <DialogDescription>
-              This will disconnect WhatsApp and Facebook. AI replies will stop immediately.
+              {selectedDisconnectAccount
+                ? `This will disconnect ${formatAccountLabel(selectedDisconnectAccount)}. AI replies for this channel will stop immediately.`
+                : "Select an account to disconnect."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1237,13 +1303,15 @@ export default function SettingsPage() {
             </Button>
             <Button
               type="button"
-              disabled={disconnectAll.isPending}
+              variant="destructive"
+              disabled={!selectedDisconnectAccountId || disconnectAccount.isPending}
               onClick={() => {
                 if (blockIfSettingsPreview()) return;
-                disconnectAll.mutate();
+                if (!selectedDisconnectAccountId) return;
+                disconnectAccount.mutate(selectedDisconnectAccountId);
               }}
             >
-              {disconnectAll.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {disconnectAccount.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Disconnect
             </Button>
           </DialogFooter>

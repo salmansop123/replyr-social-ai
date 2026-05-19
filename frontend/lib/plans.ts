@@ -7,12 +7,12 @@ export type BillingPlan = {
   name: string;
   price: string;
   period: string;
+  description?: string;
+  startingFrom?: boolean;
   tier: number;
   popular?: boolean;
-  /** Short bullets shown on package cards */
+  /** Bullets shown on package / pricing cards */
   highlights: string[];
-  /** Full feature list for billing comparison */
-  features: string[];
   stripePriceEnvKey?: string;
 };
 
@@ -21,71 +21,64 @@ export const BILLING_PLANS: BillingPlan[] = [
     id: "free",
     name: "Free",
     price: "$0",
-    period: "to get started",
+    period: "/month",
+    description: "To get started",
     tier: 0,
-    highlights: ["500 AI replies / month", "Up to 3 connected accounts", "WhatsApp + Facebook"],
-    features: [
-      "500 AI replies / month",
-      "3 connected accounts",
-      "1 team member",
+    highlights: [
+      "500 AI replies per month",
+      "Up to 3 connected accounts",
       "WhatsApp + Facebook",
-      "Community support",
+      "Real-time AI auto replies",
+      "Unified inbox dashboard",
     ],
   },
   {
     id: "starter",
     name: "Starter",
-    price: "$29",
-    period: "per month",
+    price: "$19",
+    period: "/month",
+    description: "For small businesses getting started",
     tier: 1,
     highlights: [
-      "500 AI replies / month",
-      "1 WhatsApp + Facebook channel bundle",
-      "Email support",
-    ],
-    features: [
-      "500 AI replies / month",
-      "3 connected accounts",
-      "1 team member",
-      "Email support",
-      "WhatsApp + Facebook",
+      "500 AI replies per month",
+      "WhatsApp integration",
+      "Facebook integration",
+      "Real-time AI auto replies",
+      "Unified inbox dashboard",
+      "Basic analytics",
     ],
     stripePriceEnvKey: "NEXT_PUBLIC_STRIPE_PRICE_STARTER",
   },
   {
     id: "professional",
     name: "Professional",
-    price: "$79",
-    period: "per month",
+    price: "$59",
+    period: "/month",
+    description: "For growing businesses",
     tier: 2,
     popular: true,
     highlights: [
-      "5,000 AI replies / month",
-      "Up to 3 connected channels (WhatsApp / Facebook mix)",
-      "Priority support",
-    ],
-    features: [
-      "5,000 AI replies / month",
-      "10 connected accounts",
-      "5 team members",
-      "Priority support",
-      "WhatsApp + Facebook",
+      "Everything in Starter, plus:",
+      "5,000 AI replies per month",
+      "AI lead collection",
+      "Advanced analytics dashboard",
+      "Multi-language AI replies",
     ],
     stripePriceEnvKey: "NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL",
   },
   {
     id: "enterprise",
     name: "Enterprise",
-    price: "$199",
-    period: "per month",
+    price: "$149",
+    period: "/month",
+    description: "For established businesses",
+    startingFrom: true,
     tier: 3,
-    highlights: ["Unlimited AI replies", "Unlimited channels & priority support", "API access"],
-    features: [
+    highlights: [
+      "Everything in Professional, plus:",
       "Unlimited AI replies",
-      "Unlimited accounts",
-      "Unlimited team members",
-      "Dedicated support",
-      "All channels + API access",
+      "Custom AI business training",
+      "Custom automation workflows",
     ],
     stripePriceEnvKey: "NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE",
   },

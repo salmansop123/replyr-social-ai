@@ -52,21 +52,6 @@ function ChannelsAccountsContent() {
   const [displayName, setDisplayName] = useState("");
 
   useEffect(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7845/ingest/e46810bd-6a09-4049-8a37-492421b89b3f", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "951a6e" },
-      body: JSON.stringify({
-        sessionId: "951a6e",
-        location: "AccountsPageClient.tsx:mount",
-        message: "accounts client mounted",
-        data: { hasFacebookParam: !!searchParams.get("facebook") },
-        timestamp: Date.now(),
-        hypothesisId: "B",
-        runId: "pre-fix",
-      }),
-    }).catch(() => {});
-    // #endregion
     const fb = searchParams.get("facebook");
     if (fb === "connected") {
       toast.success("Facebook Page connected.");
