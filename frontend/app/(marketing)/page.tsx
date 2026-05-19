@@ -11,9 +11,13 @@ import { Stats } from "@/components/marketing/Stats";
 import { Testimonials } from "@/components/marketing/Testimonials";
 
 export const metadata: Metadata = {
-  title: "Replyr AI — Human-grade WhatsApp & Facebook replies",
+  title: "Replyr AI — Human-grade Reply Management",
   description:
     "Replyr AI reads your posts, understands your products, and replies in your tone 24/7 across WhatsApp and Facebook — with human takeover when you need it.",
+
+  icons: {
+    icon: "../marketing/favicon.ico",
+  },
 };
 
 export default function LandingPage() {

@@ -126,18 +126,17 @@ export function PlatformCard({ platform, summary, isLoading }: Props) {
             <div
               className={cn(
                 "rounded-xl border p-3",
-                !isWa && leads > 0
-                  ? "border-fb/30 bg-gradient-to-br from-fb/10 via-white to-electric-soft/30 ring-1 ring-fb/20"
-                  : "border-teal-brand/15 bg-gradient-to-br from-teal-muted/40 to-white",
+                leads > 0
+                  ? "border-slate-300/60 bg-gradient-to-br from-slate-50 via-white to-slate-100/80 ring-1 ring-slate-200/50"
+                  : "border-slate-200/50 bg-gradient-to-br from-slate-50/50 to-white",
               )}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Leads captured</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Leads captured</p>
               <div className="mt-1 flex items-end justify-between gap-2">
-                <p className="text-2xl font-bold tabular-nums text-slate-900">{leads}</p>
+                <p className="text-2xl font-bold tabular-nums text-slate-700">{leads}</p>
                 {!isWa && leads > 0 && (
                   <span
-                    className="mb-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-md"
-                    style={{ background: `linear-gradient(135deg, ${FB}, #0d65d9)` }}
+                    className="mb-0.5 inline-flex items-center gap-1 rounded-full bg-slate-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-md"
                   >
                     <span className="h-1.5 w-1.5 rounded-full bg-white/90" aria-hidden />
                     FB leads

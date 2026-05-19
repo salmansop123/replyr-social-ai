@@ -191,11 +191,9 @@ export default function DashboardHome() {
               </p>
               <p className="mt-1 text-xs text-slate-500">Automated sends</p>
             </div>
-            <div className="metric-card border-wa/20 bg-gradient-to-br from-white to-wa-muted/50 hover:shadow-glow-wa-soft">
-              <p className="text-xs font-medium text-slate-500">Leads</p>
-              <p className="mt-2 text-3xl font-bold bg-gradient-to-r from-fb to-electric bg-clip-text text-transparent">
-                {totals.leads}
-              </p>
+            <div className="metric-card border-slate-300/50 bg-gradient-to-br from-white to-slate-100/80 hover:shadow-[0_8px_24px_-8px_rgba(100,116,139,0.2)]">
+              <p className="text-xs font-medium text-slate-600">Leads</p>
+              <p className="mt-2 text-3xl font-bold text-slate-700">{totals.leads}</p>
               <p className="mt-1 text-xs text-slate-500">Captured signals</p>
             </div>
           </div>
@@ -225,7 +223,7 @@ export default function DashboardHome() {
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <h3 className="text-lg font-bold text-slate-900">Activity trend</h3>
-            <p className="mt-1 text-sm text-slate-600">Last 30 days inbound, outbound, and leads.</p>
+            <p className="mt-1 text-sm text-slate-600">Last 14 days inbound, outbound, and leads.</p>
           </div>
           <div className="flex flex-wrap gap-4 text-xs font-semibold">
             <span className="flex items-center gap-2 text-electric">
@@ -234,8 +232,8 @@ export default function DashboardHome() {
             <span className="flex items-center gap-2 text-teal-brand">
               <span className="h-2 w-2 rounded-full bg-teal-brand shadow-glow-teal" /> Outbound
             </span>
-            <span className="flex items-center gap-2 text-fb">
-              <span className="h-2 w-2 rounded-full bg-fb" /> Leads
+            <span className="flex items-center gap-2 text-slate-600">
+              <span className="h-2 w-2 rounded-full bg-slate-500" /> Leads
             </span>
           </div>
         </div>

@@ -985,7 +985,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Card 4 — Business hours */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Business Hours</CardTitle>
           <CardDescription>Optionally restrict AI replies to your working hours.</CardDescription>
@@ -1090,7 +1090,7 @@ export default function SettingsPage() {
             </div>
           </form>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Card 5 — Escalation */}
       <Card>
