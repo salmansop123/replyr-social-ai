@@ -1,6 +1,7 @@
 # Env
 backend/.env
 backend/.env.local
+backend/.pg-port
 frontend/.env
 frontend/.env.local
 *.pem
@@ -30,3 +31,5 @@ npm-debug.log*
 
 # OS
 .DS_Store
+
+.cursor/
