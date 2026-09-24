@@ -13,7 +13,6 @@ import { z } from "zod";
 import { useApi } from "@/lib/api";
 import { UsageQuotaBanner } from "@/components/dashboard/UsageQuotaBanner";
 import { useSessionBootstrap } from "@/components/dashboard/SessionBootstrap";
-import { useAuthToken } from "@/components/auth/AuthAndClerkProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +26,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -40,9 +38,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-const SettingsAccountClerkBody = dynamic(
-  () =>
-    import("@/components/dashboard/SettingsAccountClerkBody").then((m) => m.SettingsAccountClerkBody),
+const SettingsAccountBody = dynamic(
+  () => import("@/components/dashboard/SettingsAccountBody").then((m) => m.SettingsAccountBody),
   {
     ssr: false,
     loading: () => (
@@ -282,10 +279,7 @@ function isAuthBarrierForSettingsPreview(error: unknown): boolean {
   return false;
 }
 
-function orgMeFailureCopy(
-  error: unknown,
-  isClerkActive: boolean,
-): { title: string; description: string } {
+function orgMeFailureCopy(error: unknown): { title: string; description: string } {
   const origin = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
   const apiBase = `${origin}/api/v1`;
 
@@ -309,18 +303,15 @@ function orgMeFailureCopy(
 
   if (status === 401 || status === 403) {
     return {
-      title: "Sign-in or token required",
-      description: isClerkActive
-        ? "The API rejected your session token. Sign out and back in, or verify CLERK_DOMAIN / JWT settings on the backend match your Clerk project."
-        : "Add Clerk keys to the frontend and sign in so /org/me receives a Bearer token, or the backend will return 401.",
+      title: "Sign-in required",
+      description: "Your session expired or is invalid. Sign out and sign in again.",
     };
   }
 
   if (status === 404 && detail.toLowerCase().includes("user not found")) {
     return {
-      title: "Workspace not provisioned yet",
-      description:
-        "Your Clerk user is not in the database yet. Open Dashboard (home) once so /auth/bootstrap runs, then retry Settings.",
+      title: "Account not found",
+      description: "Your account could not be loaded. Try signing out and signing in again.",
     };
   }
 
@@ -331,7 +322,7 @@ function orgMeFailureCopy(
       detail.toLowerCase().includes("header") ||
       detail.toLowerCase().includes("field required");
     const description = authLikely
-      ? `The API rejected the request (often a missing Bearer token). ${detail ? `\n\n${detail}` : "Sign in with Clerk so /org/me sends Authorization, or configure NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY."}`
+      ? `The API rejected the request (often a missing Bearer token). ${detail ? `\n\n${detail}` : "Sign in so /org/me sends Authorization."}`
       : detail || "Validation error from the server.";
     return {
       title: authLikely ? "Sign-in or API token required" : "Request rejected",
@@ -347,49 +338,9 @@ function orgMeFailureCopy(
   };
 }
 
-/** No Clerk hooks — for dev without Clerk keys. */
-function SettingsAccountOfflineBody({ planLabel, orgCreatedAt }: { planLabel: string; orgCreatedAt: string }) {
-  return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <Label className="text-slate-500">Name</Label>
-          <div className="mt-1 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-800">—</div>
-        </div>
-        <div>
-          <Label className="text-slate-500">Email</Label>
-          <div className="mt-1 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-800">—</div>
-        </div>
-        <div>
-          <Label className="text-slate-500">Account created</Label>
-          <div className="mt-1 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-800">
-            {new Date(orgCreatedAt).toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </div>
-        </div>
-        <div>
-          <Label className="text-slate-500">Current plan</Label>
-          <div className="mt-1 flex items-center gap-2">
-            <Badge className="capitalize">{planLabel}</Badge>
-          </div>
-        </div>
-      </div>
-      <Separator />
-      <Button type="button" variant="outline" disabled>
-        Manage Profile &amp; Password →
-      </Button>
-      <p className="text-xs text-slate-500">Clerk is not configured in this environment.</p>
-    </>
-  );
-}
-
 export default function SettingsPage() {
   const api = useApi();
   const qc = useQueryClient();
-  const { isClerkActive } = useAuthToken();
   const { ready: sessionReady } = useSessionBootstrap();
   const [clientReady, setClientReady] = useState(false);
 
@@ -656,7 +607,7 @@ export default function SettingsPage() {
   if (!org) {
     const copy =
       orgQuery.isError && orgQuery.error
-        ? orgMeFailureCopy(orgQuery.error, isClerkActive)
+        ? orgMeFailureCopy(orgQuery.error)
         : {
             title: "Could not load organization",
             description: "No data returned from /org/me.",
@@ -687,7 +638,7 @@ export default function SettingsPage() {
   const blockIfSettingsPreview = (): boolean => {
     if (!settingsPreviewOnly) return false;
     toast.message("Preview mode", {
-      description: "Sign in with Clerk and load /org/me successfully to save changes.",
+      description: "Sign in and load /org/me successfully to save changes.",
     });
     return true;
   };
@@ -709,7 +660,7 @@ export default function SettingsPage() {
           <div>
             <p className="font-semibold">Preview mode</p>
             <p className="mt-1 text-sky-900/90">
-              /org/me did not load (usually missing Clerk sign-in or Bearer token). You can explore the form below;
+              /org/me did not load (usually missing sign-in or Bearer token). You can explore the form below;
               saving is disabled until the API accepts your session. Use Retry after signing in.
             </p>
           </div>
@@ -985,7 +936,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Card 4 — Business hours */}
-      {/* <Card>
+      <Card>
         <CardHeader>
           <CardTitle>Business Hours</CardTitle>
           <CardDescription>Optionally restrict AI replies to your working hours.</CardDescription>
@@ -1090,7 +1041,7 @@ export default function SettingsPage() {
             </div>
           </form>
         </CardContent>
-      </Card> */}
+      </Card>
 
       {/* Card 5 — Escalation */}
       <Card>
@@ -1169,17 +1120,15 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Account Information</CardTitle>
-          <CardDescription>Manage your personal profile and password in Clerk.</CardDescription>
+          <CardDescription>Your account details for this workspace.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {!clientReady ? (
             <div className="flex justify-center py-6">
               <Loader2 className="h-6 w-6 animate-spin text-electric" />
             </div>
-          ) : isClerkActive ? (
-            <SettingsAccountClerkBody planLabel={planLabel} orgCreatedAt={org.created_at} />
           ) : (
-            <SettingsAccountOfflineBody planLabel={planLabel} orgCreatedAt={org.created_at} />
+            <SettingsAccountBody planLabel={planLabel} orgCreatedAt={org.created_at} />
           )}
         </CardContent>
       </Card>

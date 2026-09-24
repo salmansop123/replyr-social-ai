@@ -4,13 +4,6 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
 
-class UserSyncIn(BaseModel):
-    clerk_user_id: str
-    clerk_org_id: str | None = None
-    email: str | None = None
-    name: str | None = None
-
-
 class OrganizationOut(BaseModel):
     id: UUID
     name: str

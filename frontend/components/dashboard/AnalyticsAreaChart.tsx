@@ -29,7 +29,7 @@ function stackHeights(
 
   const scale = columnHeightPx / total;
   let hInWa = Math.round(rawInWa * scale);
-  let hFb = Math.round(rawFb * scale);
+  const hFb = Math.round(rawFb * scale);
   let hOut = Math.round(rawOut * scale);
   let hLead = Math.round(rawLead * scale);
 

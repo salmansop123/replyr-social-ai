@@ -56,13 +56,23 @@ fi
 [[ -n "$OR_KEY" && "$OR_KEY" == sk-or-* ]] && ok "OPENROUTER_API_KEY" || warn "OPENROUTER for AI replies"
 
 echo "3) Facebook setup API"
-SETUP=$(curl -sf -H "Authorization: Bearer dev-local" "${API}/api/v1/auth/dev-bootstrap" -X POST 2>/dev/null || true)
-SETUP=$(curl -sf -H "Authorization: Bearer dev-local" "${API}/api/v1/social/facebook/setup" 2>/dev/null || true)
+TEST_EMAIL="phase3_${RANDOM}@example.com"
+AUTH=$(curl -sf -X POST "${API}/api/v1/auth/sign-up" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"phase3pass123\",\"business_name\":\"Phase3 Org\"}" 2>/dev/null || true)
+TOKEN=""
+if [[ -n "${AUTH}" ]]; then
+  TOKEN=$(echo "${AUTH}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || true)
+fi
+SETUP=""
+if [[ -n "${TOKEN}" ]]; then
+  SETUP=$(curl -sf -H "Authorization: Bearer ${TOKEN}" "${API}/api/v1/social/facebook/setup" 2>/dev/null || true)
+fi
 if [[ -n "$SETUP" ]]; then
   ok "GET /social/facebook/setup"
   echo "     $(echo "$SETUP" | python3 -c "import sys,json; d=json.load(sys.stdin); print('redirect:', d.get('oauth_redirect_uri',''))" 2>/dev/null || echo "$SETUP" | head -c 120)"
 else
-  bad "Could not fetch /social/facebook/setup (dev auth / API)"
+  bad "Could not fetch /social/facebook/setup (sign up + API)"
 fi
 
 echo "4) Webhook path"

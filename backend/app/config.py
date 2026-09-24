@@ -11,17 +11,12 @@ class Settings(BaseSettings):
     )
 
     app_env: str = "development"
-    dev_auth_enabled: bool = False
     secret_key: str
     frontend_url: str = "http://localhost:3000"
     encryption_key: str
 
     database_url: str
     redis_url: str = "redis://localhost:6379/0"
-
-    clerk_domain: str
-    clerk_secret_key: str = ""
-    clerk_webhook_secret: str = ""
 
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""

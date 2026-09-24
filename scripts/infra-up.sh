@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start Postgres (+ optional Redis check) for local host development.
-# Uses port 5433 for Postgres when 5432 is already taken by system PostgreSQL.
+# Uses port 5433 by default; picks the next free port if 5433 is taken by another project.
 
 set -euo pipefail
 
@@ -8,21 +8,48 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONTAINER_PG="${REPLYR_PG_CONTAINER:-replyr-postgres}"
 PG_PORT="${REPLYR_PG_PORT:-5433}"
 PG_IMAGE="${REPLYR_PG_IMAGE:-postgres:16-alpine}"
+PG_PORT_FILE="${ROOT}/backend/.pg-port"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Docker is required. Install Docker, or ensure Postgres is reachable at:" >&2
-  echo "  postgresql://replyr:replyr_dev@localhost:${PG_PORT}/replyr" >&2
+container_exists() {
+  docker ps -a --format '{{.Names}}' | grep -qx "${CONTAINER_PG}"
+}
+
+container_running() {
+  docker ps --format '{{.Names}}' | grep -qx "${CONTAINER_PG}"
+}
+
+container_mapped_port() {
+  docker port "${CONTAINER_PG}" 5432/tcp 2>/dev/null | head -1 | sed 's/.*://' || true
+}
+
+port_in_use() {
+  local port="$1"
+  ss -tln 2>/dev/null | grep -q ":${port} "
+}
+
+find_available_port() {
+  local port="$1"
+  local max=$((port + 10))
+  while [[ "${port}" -le "${max}" ]]; do
+    if ! port_in_use "${port}"; then
+      echo "${port}"
+      return 0
+    fi
+    if container_exists && [[ "$(container_mapped_port)" == "${port}" ]]; then
+      echo "${port}"
+      return 0
+    fi
+    port=$((port + 1))
+  done
+  echo "No free Postgres port between ${REPLYR_PG_PORT:-5433} and ${max}" >&2
   exit 1
-fi
+}
 
-if docker ps -a --format '{{.Names}}' | grep -qx "${CONTAINER_PG}"; then
-  if docker ps --format '{{.Names}}' | grep -qx "${CONTAINER_PG}"; then
-    echo "Postgres container '${CONTAINER_PG}' already running."
-  else
-    echo "Starting existing container '${CONTAINER_PG}'…"
-    docker start "${CONTAINER_PG}" >/dev/null
+recreate_container() {
+  if container_exists; then
+    echo "Removing misconfigured container '${CONTAINER_PG}'…"
+    docker rm -f "${CONTAINER_PG}" >/dev/null
   fi
-else
   echo "Creating Postgres on localhost:${PG_PORT} → container 5432…"
   docker run -d \
     --name "${CONTAINER_PG}" \
@@ -31,7 +58,35 @@ else
     -e POSTGRES_DB=replyr \
     -p "${PG_PORT}:5432" \
     "${PG_IMAGE}" >/dev/null
+}
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker is required. Install Docker, or ensure Postgres is reachable at:" >&2
+  echo "  postgresql://replyr:replyr_dev@localhost:${PG_PORT}/replyr" >&2
+  exit 1
 fi
+
+if container_exists; then
+  mapped="$(container_mapped_port)"
+  if [[ -z "${mapped}" ]]; then
+    echo "Container '${CONTAINER_PG}' has no host port published — recreating…"
+    PG_PORT="$(find_available_port "${PG_PORT}")"
+    recreate_container
+  else
+    PG_PORT="${mapped}"
+    if container_running; then
+      echo "Postgres container '${CONTAINER_PG}' already running on port ${PG_PORT}."
+    else
+      echo "Starting existing container '${CONTAINER_PG}' on port ${PG_PORT}…"
+      docker start "${CONTAINER_PG}" >/dev/null
+    fi
+  fi
+else
+  PG_PORT="$(find_available_port "${PG_PORT}")"
+  recreate_container
+fi
+
+echo "${PG_PORT}" >"${PG_PORT_FILE}"
 
 echo "Waiting for Postgres…"
 for _ in $(seq 1 30); do

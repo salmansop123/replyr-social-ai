@@ -14,11 +14,12 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    clerk_user_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    clerk_user_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     organization_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
-    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(String(32), default="member")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

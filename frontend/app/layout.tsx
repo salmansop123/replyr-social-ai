@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Space_Grotesk } from "next/font/google";
-import { AuthAndClerkProvider } from "@/components/auth/AuthAndClerkProvider";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -39,9 +39,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} min-h-screen antialiased`}
       >
-        <AuthAndClerkProvider>
+        <AuthProvider>
           <Providers>{children}</Providers>
-        </AuthAndClerkProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -7,7 +7,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 
 /**
  * Single client boundary for the whole dashboard chrome so `usePathname` /
- * `useSelectedLayoutSegment` (and Clerk) always run under one client tree.
+ * `useSelectedLayoutSegment` always run under one client tree.
  */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (

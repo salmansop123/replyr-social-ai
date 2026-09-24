@@ -126,11 +126,21 @@ def test_facebook_webhook_http_dedupe(
     assert len(rows) == 1
 
 
+def _auth_token(sync_client: TestClient) -> str:
+    email = f"fb_setup_{uuid.uuid4().hex[:10]}@example.com"
+    r = sync_client.post(
+        "/api/v1/auth/sign-up",
+        json={"email": email, "password": "testpass123", "business_name": "FB Test Org"},
+    )
+    assert r.status_code == 200
+    return r.json()["access_token"]
+
+
 def test_facebook_setup_endpoint(sync_client: TestClient, meta_test_secret: str) -> None:
-    sync_client.post("/api/v1/auth/dev-bootstrap")
+    token = _auth_token(sync_client)
     r = sync_client.get(
         "/api/v1/social/facebook/setup",
-        headers={"Authorization": "Bearer dev-local"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 200
     data = r.json()

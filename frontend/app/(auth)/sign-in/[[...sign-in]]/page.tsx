@@ -1,22 +1,13 @@
-import dynamic from "next/dynamic";
 import Link from "next/link";
-import { OfflineAuthCard } from "@/components/auth/OfflineAuthCard";
+import { Suspense } from "react";
+import { SignInForm } from "@/components/auth/SignInForm";
 import { AppLogo } from "@/components/brand/AppLogo";
-import { isClerkConfigured } from "@/lib/clerk-config";
 
-const ClerkSignInDynamic = dynamic(
-  () => import("@/components/auth/ClerkSignInPanel").then((m) => ({ default: m.ClerkSignInPanel })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-[420px] animate-pulse rounded-2xl bg-gradient-to-br from-slate-50 to-white" aria-hidden />
-    ),
-  },
-);
+function SignInFormFallback() {
+  return <div className="min-h-[320px] animate-pulse rounded-2xl bg-gradient-to-br from-slate-50 to-white" aria-hidden />;
+}
 
 export default function SignInPage() {
-  const clerk = isClerkConfigured();
-
   return (
     <div className="min-h-screen mesh-page noise-overlay">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col lg:flex-row">
@@ -69,7 +60,9 @@ export default function SignInPage() {
                   </span>
                 </Link>
               </div>
-              {clerk ? <ClerkSignInDynamic /> : <OfflineAuthCard variant="sign-in" />}
+              <Suspense fallback={<SignInFormFallback />}>
+                <SignInForm />
+              </Suspense>
             </div>
             <p className="mt-6 text-center text-xs text-slate-500">
               By continuing you agree to our terms and acknowledge our focus on WhatsApp & Facebook workflows.

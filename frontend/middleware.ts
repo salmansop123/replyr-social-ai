@@ -1,40 +1,30 @@
 import { NextResponse } from "next/server";
-import type { NextFetchEvent, NextRequest } from "next/server";
-import { authMiddleware } from "@clerk/nextjs/server";
-import { isClerkConfigured } from "@/lib/clerk-config";
+import type { NextRequest } from "next/server";
 
-/**
- * Do NOT call `authMiddleware()` at module load time — Clerk reads `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
- * immediately and throws if it's missing. Lazily create the handler only when configured.
- */
-let clerkMiddlewareInstance: ReturnType<typeof authMiddleware> | null = null;
+const AUTH_COOKIE = "replyr_auth";
 
-function getClerkMiddleware(): ReturnType<typeof authMiddleware> | null {
-  if (!isClerkConfigured()) {
-    return null;
-  }
-  if (!clerkMiddlewareInstance) {
-    clerkMiddlewareInstance = authMiddleware({
-      publicRoutes: ["/", "/pricing", "/contact", "/sign-in(.*)", "/sign-up(.*)"],
-      ignoredRoutes: ["/api/webhooks(.*)"],
-      signInUrl: "/sign-in",
-    });
-  }
-  return clerkMiddlewareInstance;
-}
-
-export default function middleware(req: NextRequest, evt: NextFetchEvent) {
+export default function middleware(req: NextRequest) {
   if (req.nextUrl.pathname === "/dashborad") {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
-  const clerk = getClerkMiddleware();
-  if (!clerk) {
-    return NextResponse.next();
+  const isAuthed = req.cookies.get(AUTH_COOKIE)?.value === "1";
+  const path = req.nextUrl.pathname;
+
+  if (path.startsWith("/dashboard") && !isAuthed) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/sign-in";
+    url.searchParams.set("next", path);
+    return NextResponse.redirect(url);
   }
-  return clerk(req, evt);
+
+  if ((path.startsWith("/sign-in") || path.startsWith("/sign-up")) && isAuthed) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {

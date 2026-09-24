@@ -44,7 +44,7 @@ export function Testimonials() {
         {items.map((t) => (
           <article key={t.name} className={cardClass}>
             <div className="flex gap-0.5 text-amber-500">
-              {Array.from({ length: 4 }).map((_, i) => (
+              {Array.from({ length: 4  }).map((_, i) => (
                 <Star key={i} className="h-4 w-4 fill-current" />
               ))}
             </div>

@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
-import { useAuthToken } from "@/components/auth/AuthAndClerkProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const links = [
   { href: "/", label: "Home" },
@@ -15,7 +14,7 @@ const links = [
 ];
 
 function AuthButtons({ layout = "row" }: { layout?: "row" | "stack" }) {
-  const { isClerkActive } = useAuthToken();
+  const { isAuthenticated, loading } = useAuth();
 
   const signInClass =
     layout === "row"
@@ -27,34 +26,26 @@ function AuthButtons({ layout = "row" }: { layout?: "row" | "stack" }) {
       ? "inline-flex items-center gap-2 rounded-xl bg-gradient-brand px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:scale-[1.02] hover:shadow-glow-accent"
       : "rounded-xl bg-gradient-brand py-3 text-center text-sm font-semibold text-white shadow-md";
 
-  if (!isClerkActive) {
+  if (loading) {
+    return null;
+  }
+
+  if (isAuthenticated) {
     return (
-      <>
-        <Link href="/sign-in" className={signInClass}>
-          Sign In
-        </Link>
-        <Link href="/sign-up" className={`${trialClass} inline-flex justify-center`}>
-          Start Free Trial <span aria-hidden>→</span>
-        </Link>
-      </>
+      <Link href="/dashboard" className={`${trialClass} inline-flex justify-center`}>
+        Dashboard <span aria-hidden>→</span>
+      </Link>
     );
   }
 
   return (
     <>
-      <SignedOut>
-        <Link href="/sign-in" className={signInClass}>
-          Sign In
-        </Link>
-        <Link href="/sign-up" className={`${trialClass} inline-flex justify-center`}>
-          Start Free Trial <span aria-hidden>→</span>
-        </Link>
-      </SignedOut>
-      <SignedIn>
-        <Link href="/dashboard" className={`${trialClass} inline-flex justify-center`}>
-          Dashboard <span aria-hidden>→</span>
-        </Link>
-      </SignedIn>
+      <Link href="/sign-in" className={signInClass}>
+        Sign In
+      </Link>
+      <Link href="/sign-up" className={`${trialClass} inline-flex justify-center`}>
+        Start Free Trial <span aria-hidden>→</span>
+      </Link>
     </>
   );
 }

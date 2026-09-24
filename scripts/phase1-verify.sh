@@ -58,18 +58,28 @@ else
   bad "API not running — start: bash scripts/dev-local.sh"
 fi
 
-echo "4) Dev auth bootstrap"
-BOOT=$(curl -sf -X POST "${API}/api/v1/auth/dev-bootstrap" 2>/dev/null || true)
-if [[ -n "${BOOT}" ]]; then
-  ok "POST /api/v1/auth/dev-bootstrap"
+echo "4) Auth sign-up"
+TEST_EMAIL="verify_${RANDOM}@example.com"
+AUTH=$(curl -sf -X POST "${API}/api/v1/auth/sign-up" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"verifypass123\",\"business_name\":\"Verify Org\"}" 2>/dev/null || true)
+TOKEN=""
+if [[ -n "${AUTH}" ]]; then
+  TOKEN=$(echo "${AUTH}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || true)
+fi
+if [[ -n "${TOKEN}" ]]; then
+  ok "POST /api/v1/auth/sign-up"
 else
-  bad "Dev bootstrap failed (set DEV_AUTH_ENABLED=true in backend/.env.local)"
+  bad "Auth sign-up failed"
 fi
 
-echo "5) Org /me (dev token)"
-ORG=$(curl -sf -H "Authorization: Bearer dev-local" "${API}/api/v1/org/me" 2>/dev/null || true)
+echo "5) Org /me (JWT)"
+ORG=""
+if [[ -n "${TOKEN}" ]]; then
+  ORG=$(curl -sf -H "Authorization: Bearer ${TOKEN}" "${API}/api/v1/org/me" 2>/dev/null || true)
+fi
 if [[ -n "${ORG}" ]]; then
-  ok "GET /api/v1/org/me with Bearer dev-local"
+  ok "GET /api/v1/org/me with Bearer token"
 else
   bad "GET /org/me failed"
 fi
@@ -81,17 +91,11 @@ else
   warn "Frontend not on :3000 (start dev-local.sh)"
 fi
 
-echo "7) Clerk (optional)"
-FE_CLERK="${ROOT}/frontend/.env.local"
-if [[ -f "${FE_CLERK}" ]] && grep -qE '^NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_' "${FE_CLERK}" 2>/dev/null; then
-  k=$(grep '^NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=' "${FE_CLERK}" | cut -d= -f2- | tr -d '"' | tr -d "'")
-  if [[ ${#k} -ge 50 ]]; then
-    ok "Clerk publishable key present — use real sign-in at /sign-in"
-  else
-    warn "Clerk key too short — using offline dev auth"
-  fi
+echo "7) Sign-in page"
+if curl -sf -o /dev/null "http://localhost:3000/sign-in" 2>/dev/null || curl -sf -o /dev/null "http://127.0.0.1:3000/sign-in" 2>/dev/null; then
+  ok "Sign-in page at /sign-in"
 else
-  warn "No Clerk key — offline dev auth (Continue to dashboard)"
+  warn "Sign-in page not reachable on :3000"
 fi
 
 echo "8) OpenRouter (optional for AI replies)"

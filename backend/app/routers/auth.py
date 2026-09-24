@@ -1,14 +1,15 @@
 import re
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_clerk_jwt_payload
+from app.dependencies import get_current_user
 from app.models.organization import Organization
 from app.models.user import User
-from app.schemas import UserSyncIn
-from app.services.dev_auth import dev_auth_allowed, get_or_create_dev_user, require_dev_auth_enabled
+from app.services.auth_tokens import create_access_token
+from app.services.passwords import hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -18,97 +19,103 @@ def _slugify(name: str) -> str:
     return s or "org"
 
 
-def apply_user_sync(db: Session, body: UserSyncIn) -> dict:
-    """Create or update organization + user from Clerk identifiers."""
-    org: Organization | None = None
-    if body.clerk_org_id:
-        org = db.query(Organization).filter(Organization.clerk_org_id == body.clerk_org_id).first()
-    if not org:
-        base_name = (body.name or body.email or "My business").split("@")[0]
-        slug_base = _slugify(base_name)[:40]
-        slug = slug_base
-        n = 0
-        while db.query(Organization).filter(Organization.slug == slug).first():
-            n += 1
-            slug = f"{slug_base}-{n}"
-        org = Organization(
-            clerk_org_id=body.clerk_org_id,
-            name=body.name or body.email or "My business",
-            slug=slug,
-            escalation_keywords=[],
-        )
-        db.add(org)
-        db.flush()
+class SignUpIn(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    name: str | None = Field(None, max_length=255)
+    business_name: str | None = Field(None, max_length=255)
 
-    user = db.query(User).filter(User.clerk_user_id == body.clerk_user_id).first()
-    if user:
-        user.email = body.email
-        user.name = body.name
-        user.organization_id = org.id
-        db.commit()
-        return {"ok": True, "created": False, "user_id": str(user.id), "organization_id": str(org.id)}
+
+class SignInIn(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AuthTokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user_id: str
+    organization_id: str
+    email: str | None
+    name: str | None
+
+
+class UserOut(BaseModel):
+    id: str
+    email: str | None
+    name: str | None
+    role: str
+    organization_id: str
+
+    model_config = {"from_attributes": True}
+
+
+def _auth_response(user: User) -> AuthTokenOut:
+    token = create_access_token(str(user.id))
+    return AuthTokenOut(
+        access_token=token,
+        user_id=str(user.id),
+        organization_id=str(user.organization_id),
+        email=user.email,
+        name=user.name,
+    )
+
+
+def _create_org_with_slug(db: Session, name: str) -> Organization:
+    slug_base = _slugify(name)[:40]
+    slug = slug_base
+    n = 0
+    while db.query(Organization).filter(Organization.slug == slug).first():
+        n += 1
+        slug = f"{slug_base}-{n}"
+    org = Organization(
+        name=name,
+        slug=slug,
+        escalation_keywords=[],
+    )
+    db.add(org)
+    db.flush()
+    return org
+
+
+@router.post("/sign-up", response_model=AuthTokenOut)
+def sign_up(body: SignUpIn, db: Session = Depends(get_db)) -> AuthTokenOut:
+    email = body.email.strip().lower()
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+
+    display_name = (body.name or email.split("@")[0]).strip()
+    org_name = (body.business_name or display_name or "My business").strip()
+    org = _create_org_with_slug(db, org_name)
 
     user = User(
-        clerk_user_id=body.clerk_user_id,
         organization_id=org.id,
-        email=body.email,
-        name=body.name,
+        email=email,
+        name=body.name or display_name,
+        password_hash=hash_password(body.password),
         role="owner",
     )
     db.add(user)
     db.commit()
-    return {"ok": True, "created": True, "user_id": str(user.id), "organization_id": str(org.id)}
+    db.refresh(user)
+    return _auth_response(user)
 
 
-def _claims_to_user_sync(payload: dict) -> UserSyncIn:
-    sub = payload.get("sub")
-    if not sub or not isinstance(sub, str):
-        raise HTTPException(status_code=401, detail="Invalid token")
-    email = payload.get("email")
-    if email is not None and not isinstance(email, str):
-        email = None
-    name = payload.get("name")
-    if not name or not isinstance(name, str):
-        gn = str(payload.get("given_name") or "")
-        fn = str(payload.get("family_name") or "")
-        name = (gn + " " + fn).strip() or None
-    org_id = payload.get("org_id") or payload.get("o") or payload.get("organization_id")
-    if org_id is not None and not isinstance(org_id, str):
-        org_id = str(org_id)
-    return UserSyncIn(clerk_user_id=sub, clerk_org_id=org_id, email=email, name=name)
+@router.post("/sign-in", response_model=AuthTokenOut)
+def sign_in(body: SignInIn, db: Session = Depends(get_db)) -> AuthTokenOut:
+    email = body.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not user.password_hash or not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    return _auth_response(user)
 
 
-@router.post("/sync-user")
-def sync_user(body: UserSyncIn, db: Session = Depends(get_db)) -> dict:
-    """Create organization + user from Clerk (called from Next.js webhook)."""
-    return apply_user_sync(db, body)
-
-
-@router.post("/dev-bootstrap")
-def dev_bootstrap(db: Session = Depends(get_db)) -> dict:
-    """Provision a local dev user when Clerk is not configured (development only)."""
-    require_dev_auth_enabled()
-    user = get_or_create_dev_user(db)
-    return {
-        "ok": True,
-        "created": True,
-        "user_id": str(user.id),
-        "organization_id": str(user.organization_id),
-        "mode": "dev",
-    }
-
-
-@router.post("/bootstrap")
-def bootstrap_from_session(
-    payload: dict = Depends(get_clerk_jwt_payload),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Provision the current Clerk user in Postgres on first dashboard visit (no webhook required)."""
-    sub = payload.get("sub")
-    if not sub or not isinstance(sub, str):
-        raise HTTPException(status_code=401, detail="Invalid token")
-    existing = db.query(User).filter(User.clerk_user_id == sub).first()
-    if existing:
-        return {"ok": True, "created": False, "user_id": str(existing.id), "organization_id": str(existing.organization_id)}
-    body = _claims_to_user_sync(payload)
-    return apply_user_sync(db, body)
+@router.get("/me", response_model=UserOut)
+def get_me(current_user: User = Depends(get_current_user)) -> UserOut:
+    return UserOut(
+        id=str(current_user.id),
+        email=current_user.email,
+        name=current_user.name,
+        role=current_user.role,
+        organization_id=str(current_user.organization_id),
+    )

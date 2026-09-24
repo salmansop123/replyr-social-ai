@@ -20,12 +20,26 @@ import json
 import os
 import sys
 import time
+import uuid
 from pathlib import Path
 
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = os.environ.get("REPLYR_API_URL", "http://localhost:8000").rstrip("/")
+
+
+def _ensure_auth_token(client: httpx.Client) -> str:
+    token = (os.environ.get("TEST_JWT") or "").strip()
+    if token:
+        return token
+    email = f"script_{uuid.uuid4().hex[:10]}@example.com"
+    r = client.post(
+        f"{BASE}/api/v1/auth/sign-up",
+        json={"email": email, "password": "scriptpass123", "business_name": "Script Test Org"},
+    )
+    r.raise_for_status()
+    return r.json()["access_token"]
 
 
 def _load_dotenv() -> None:
@@ -132,10 +146,9 @@ def main() -> int:
     print(f"\nWaiting {wait}s for Celery + AI reply…")
     time.sleep(wait)
 
-    token = (os.environ.get("TEST_JWT") or "dev-local").strip()
-    headers = {"Authorization": f"Bearer {token}"}
     with httpx.Client(timeout=30.0) as client:
-        client.post(f"{BASE}/api/v1/auth/dev-bootstrap")
+        token = _ensure_auth_token(client)
+        headers = {"Authorization": f"Bearer {token}"}
         cr = client.get(
             f"{BASE}/api/v1/conversations",
             headers=headers,

@@ -1,22 +1,8 @@
-import dynamic from "next/dynamic";
 import Link from "next/link";
-import { OfflineAuthCard } from "@/components/auth/OfflineAuthCard";
+import { SignUpForm } from "@/components/auth/SignUpForm";
 import { AppLogo } from "@/components/brand/AppLogo";
-import { isClerkConfigured } from "@/lib/clerk-config";
-
-const ClerkSignUpDynamic = dynamic(
-  () => import("@/components/auth/ClerkSignUpPanel").then((m) => ({ default: m.ClerkSignUpPanel })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-[420px] animate-pulse rounded-2xl bg-gradient-to-br from-slate-50 to-white" aria-hidden />
-    ),
-  },
-);
 
 export default function SignUpPage() {
-  const clerk = isClerkConfigured();
-
   return (
     <div className="min-h-screen mesh-page noise-overlay">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col lg:flex-row-reverse">
@@ -69,7 +55,7 @@ export default function SignUpPage() {
                   </span>
                 </Link>
               </div>
-              {clerk ? <ClerkSignUpDynamic /> : <OfflineAuthCard variant="sign-up" />}
+              <SignUpForm />
             </div>
             <p className="mt-6 text-center text-xs text-slate-500">
               WhatsApp & Facebook are first-class — one inbox, one AI stack.
